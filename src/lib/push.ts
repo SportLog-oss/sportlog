@@ -21,13 +21,15 @@ export async function getPushTokens(): Promise<string[]> {
 
 export async function sendPushToAll(title: string, body: string) {
   const tokens = await getPushTokens();
-  if (tokens.length === 0) return;
+  if (tokens.length === 0) return { tokenCount: 0, response: null };
 
   const messages = tokens.map((to) => ({ to, title, body, sound: "default" }));
 
-  await fetch("https://exp.host/--/api/v2/push/send", {
+  const res = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(messages),
   });
+  const response = await res.json().catch(() => null);
+  return { tokenCount: tokens.length, response };
 }

@@ -117,6 +117,7 @@ export async function GET(req: NextRequest) {
   // Push notifications based on the freshly synced data — plain rule-based logic
   // from src/lib/insights, no AI/agent involved.
   let notified = false;
+  let pushDebug: unknown = null;
   if (dailyMetrics && injuryRisk) {
     try {
       const warnings = generateWarnings(dailyMetrics.rows, anomalies?.anomalies ?? [], injuryRisk);
@@ -124,9 +125,9 @@ export async function GET(req: NextRequest) {
 
       if (warnings.length > 0) {
         const critical = warnings.find((w) => w.level === "critical") ?? warnings[0];
-        await sendPushToAll(critical.title, critical.message);
+        pushDebug = await sendPushToAll(critical.title, critical.message);
       } else {
-        await sendPushToAll("Heutige Empfehlung", recommendation);
+        pushDebug = await sendPushToAll("Heutige Empfehlung", recommendation);
       }
       notified = true;
     } catch (e) {
@@ -134,5 +135,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: failed.length === 0, saved, failed, notified });
+  return NextResponse.json({ ok: failed.length === 0, saved, failed, notified, pushDebug });
 }
