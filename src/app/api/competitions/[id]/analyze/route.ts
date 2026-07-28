@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getOpenRouterClient, COACH_MODEL, friendlyOpenRouterError } from "@/lib/openrouter";
 import { getCompetitions, saveCompetitions } from "@/lib/data/store";
 import { buildAthleteContext } from "@/lib/context";
+import { stripMarkdown } from "@/lib/textFormat";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,6 +23,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const others = competitions.filter((c) => c.id !== id);
 
   const prompt = `Analysiere folgenden Wettkampf eines Rudersportlers und erstelle eine kompakte Analyse auf Deutsch mit den Abschnitten "Was lief gut", "Wo wurde Zeit verloren / was lief schlechter", "Vergleich zu früheren Rennen" (falls Daten vorhanden) und "Trainingsschwerpunkte für die nächsten Wochen".
+
+Schreibe in normalem Fließtext ohne jegliche Markdown-Formatierung: keine Sternchen (** oder *) für Fett/Kursiv, keine Überschriften mit #, keine Tabellen. Nutze die Abschnittsnamen einfach als Klartext-Zeilen.
 
 Wettkampf:
 Name: ${comp.name}
@@ -52,7 +55,7 @@ ${context}`;
       messages: [{ role: "user", content: prompt }],
     });
 
-    const analysis = response.choices[0]?.message?.content ?? "";
+    const analysis = stripMarkdown(response.choices[0]?.message?.content ?? "");
     competitions[idx] = { ...comp, analysis };
     await saveCompetitions(competitions);
 

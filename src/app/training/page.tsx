@@ -3,10 +3,11 @@ import { Card } from "@/components/ui/Card";
 import { VolumeBarChart } from "@/components/charts/VolumeBarChart";
 import { HrZonesChart } from "@/components/charts/HrZonesChart";
 import { CurveChart } from "@/components/charts/CurveChart";
-import { activityLabel, formatDate, formatDistance, formatDuration, formatPace } from "@/lib/format";
+import { activityLabel, formatActivityPace, formatDate, formatDistance, formatDuration, translatePowerProfileTerm } from "@/lib/format";
 import { Bike, Dumbbell, Waves as RowingIcon, Footprints, Activity as ActivityIcon } from "lucide-react";
 import Link from "next/link";
 import { PhotoAnalysis } from "@/components/training/PhotoAnalysis";
+import { BenchmarksSection } from "@/components/training/BenchmarksSection";
 
 const ICONS: Record<string, typeof Bike> = {
   CYCLING: Bike,
@@ -43,15 +44,15 @@ export default async function TrainingPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted">Archetyp</span>
-                <span className="font-medium capitalize">{perf.power_profile.archetype.replace("_", " ")}</span>
+                <span className="font-medium">{translatePowerProfileTerm(perf.power_profile.archetype)}</span>
               </div>
               <div className="pt-2 border-t border-border">
                 <span className="text-muted text-xs">Stärken</span>
-                <p className="text-sm">{perf.power_profile.strengths.join(", ")}</p>
+                <p className="text-sm">{perf.power_profile.strengths.map(translatePowerProfileTerm).join(", ")}</p>
               </div>
               <div>
                 <span className="text-muted text-xs">Schwächen</span>
-                <p className="text-sm">{perf.power_profile.limiters.join(", ")}</p>
+                <p className="text-sm">{perf.power_profile.limiters.map(translatePowerProfileTerm).join(", ")}</p>
               </div>
             </div>
           </Card>
@@ -69,6 +70,8 @@ export default async function TrainingPage() {
           </Card>
         </section>
 
+        <BenchmarksSection />
+
         <section className="grid md:grid-cols-2 gap-6">
           <PhotoAnalysis />
         </section>
@@ -80,7 +83,7 @@ export default async function TrainingPage() {
           <div className="space-y-2">
             {activities.map((act) => {
               const Icon = ICONS[act.activityType] ?? ActivityIcon;
-              const pace = formatPace(act.averagePaceInMinutesPerKilometer);
+              const pace = formatActivityPace(act);
               return (
                 <Link
                   key={act.activityId}

@@ -25,6 +25,40 @@ function splitHalves(values: number[]): { first: number[]; second: number[] } {
   return { first: values.slice(0, mid), second: values.slice(mid) };
 }
 
+const STRAIN_SCALE_K = 80;
+
+export function computeStrain(dailyLoad: number | null | undefined): number {
+  if (!dailyLoad || dailyLoad <= 0) return 0;
+  return 21 * (1 - Math.exp(-dailyLoad / STRAIN_SCALE_K));
+}
+
+export function strainLabel(strain: number): string {
+  if (strain < 10) return "Leicht";
+  if (strain < 14) return "Moderat";
+  if (strain < 18) return "Hoch";
+  return "Sehr hoch";
+}
+
+export function computeSleepPerformance(
+  sleepDurationMin: number | null | undefined,
+  sleepNeedMin: number | null | undefined
+): number | null {
+  if (!sleepDurationMin || !sleepNeedMin) return null;
+  return (sleepDurationMin / sleepNeedMin) * 100;
+}
+
+export function recoveryLabel(pct: number): string {
+  if (pct < 34) return "Niedrig";
+  if (pct < 67) return "Mittel";
+  return "Hoch";
+}
+
+export function sleepPerformanceLabel(pct: number): string {
+  if (pct < 70) return "Unzureichend";
+  if (pct < 90) return "Ausreichend";
+  return "Optimal";
+}
+
 export function explainHrv(rows: DailyMetricRow[]): Explanation {
   const series = withValues(rows, "hrv");
   const values = series.map((s) => s.value);
@@ -41,12 +75,12 @@ export function explainHrv(rows: DailyMetricRow[]): Explanation {
 
   const headline =
     deltaPct <= -8
-      ? `Deine HRV ist in den letzten Tagen um ${Math.abs(deltaPct).toFixed(0)}% gesunken`
+      ? `Deine HFV ist in den letzten Tagen um ${Math.abs(deltaPct).toFixed(0)}% gesunken`
       : deltaPct >= 8
-        ? `Deine HRV ist um ${deltaPct.toFixed(0)}% gestiegen`
-        : "Deine HRV bewegt sich im gewohnten Bereich";
+        ? `Deine HFV ist um ${deltaPct.toFixed(0)}% gestiegen`
+        : "Deine HFV bewegt sich im gewohnten Bereich";
 
-  const body = `Aktueller Wert: ${latest?.toFixed(0) ?? "–"} ms (60-Tage-Basislinie: ${baseline?.toFixed(0) ?? "–"} ms). Die HRV spiegelt wider, wie gut dein autonomes Nervensystem aktuell mit der Trainings- und Alltagsbelastung zurechtkommt. Ein Rückgang über mehrere Tage deutet meist auf unzureichende Erholung, Stress oder eine beginnende Belastungsspitze hin – ein Anstieg auf gute Anpassung und Erholung.`;
+  const body = `Aktueller Wert: ${latest?.toFixed(0) ?? "–"} ms (60-Tage-Basislinie: ${baseline?.toFixed(0) ?? "–"} ms). Die HFV spiegelt wider, wie gut dein autonomes Nervensystem aktuell mit der Trainings- und Alltagsbelastung zurechtkommt. Ein Rückgang über mehrere Tage deutet meist auf unzureichende Erholung, Stress oder eine beginnende Belastungsspitze hin – ein Anstieg auf gute Anpassung und Erholung.`;
 
   const recommendation =
     sentiment === "negative"
@@ -78,11 +112,11 @@ export function explainRhr(rows: DailyMetricRow[]): Explanation {
         ? `Dein Ruhepuls ist um ${Math.abs(delta).toFixed(1)} bpm gesunken`
         : "Dein Ruhepuls ist stabil";
 
-  const body = `Aktueller Wert: ${latest?.toFixed(0) ?? "–"} bpm (Durchschnitt Vorperiode: ${avgFirst.toFixed(0)} bpm). Ein erhöhter Ruhepuls über mehrere Tage in Kombination mit sinkender HRV ist eines der zuverlässigsten Frühwarnzeichen für unzureichende Regeneration, Übertraining oder eine beginnende Erkrankung.`;
+  const body = `Aktueller Wert: ${latest?.toFixed(0) ?? "–"} bpm (Durchschnitt Vorperiode: ${avgFirst.toFixed(0)} bpm). Ein erhöhter Ruhepuls über mehrere Tage in Kombination mit sinkender HFV ist eines der zuverlässigsten Frühwarnzeichen für unzureichende Regeneration, Übertraining oder eine beginnende Erkrankung.`;
 
   const recommendation =
     sentiment === "negative"
-      ? "Beobachte in Kombination mit HRV und Schlaf – bei gleichzeitig sinkender HRV ist ein Ruhetag sinnvoll."
+      ? "Beobachte in Kombination mit HFV und Schlaf – bei gleichzeitig sinkender HFV ist ein Ruhetag sinnvoll."
       : sentiment === "positive"
         ? "Guter Erholungszustand – spricht für stabile Basis."
         : "Unauffällig, weiter normal trainieren.";
@@ -108,7 +142,7 @@ export function explainSleep(rows: DailyMetricRow[]): Explanation {
         ? "Dein Schlaf war zuletzt sehr gut"
         : "Dein Schlaf liegt im normalen Bereich";
 
-  const body = `Ø Schlafdauer: ${avgHours.toFixed(1)} h, Ø Schlaf-Score: ${avgScore.toFixed(0)}, letzter Wert: ${latestScore ?? "–"}. Schlaf ist die wichtigste Stellschraube für Regeneration – er beeinflusst direkt HRV, Ruhepuls und wie gut dein Körper Trainingsreize verarbeitet.`;
+  const body = `Ø Schlafdauer: ${avgHours.toFixed(1)} h, Ø Schlaf-Score: ${avgScore.toFixed(0)}, letzter Wert: ${latestScore ?? "–"}. Schlaf ist die wichtigste Stellschraube für Regeneration – er beeinflusst direkt HFV, Ruhepuls und wie gut dein Körper Trainingsreize verarbeitet.`;
 
   const recommendation =
     sentiment === "negative"
@@ -116,6 +150,95 @@ export function explainSleep(rows: DailyMetricRow[]): Explanation {
       : "Guter Rhythmus – so beibehalten.";
 
   return { headline, body, sentiment, recommendation };
+}
+
+export function explainReadiness(rows: DailyMetricRow[]): Explanation {
+  const series = withValues(rows, "readinessScoreV2");
+  const values = series.map((s) => s.value);
+  const { first, second } = splitHalves(values);
+  const avgFirst = average(first);
+  const avgSecond = average(second);
+  const delta = avgSecond - avgFirst;
+  const latest = values[values.length - 1];
+  const verdict = [...rows].reverse().find((r) => r.readinessVerdict !== null)?.readinessVerdict;
+
+  let sentiment: Sentiment = "neutral";
+  if (latest !== undefined && latest < 25) sentiment = "negative";
+  else if (latest !== undefined && latest >= 60) sentiment = "positive";
+
+  const headline =
+    sentiment === "negative"
+      ? "Deine Trainingsbereitschaft ist aktuell niedrig"
+      : sentiment === "positive"
+        ? "Deine Trainingsbereitschaft ist aktuell hoch"
+        : "Deine Trainingsbereitschaft ist aktuell durchschnittlich";
+
+  const trendText =
+    delta >= 8
+      ? ` Sie hat sich in den letzten Tagen um ${delta.toFixed(0)} Punkte verbessert.`
+      : delta <= -8
+        ? ` Sie ist in den letzten Tagen um ${Math.abs(delta).toFixed(0)} Punkte gesunken.`
+        : " Sie ist in den letzten Tagen stabil geblieben.";
+
+  const body = `Aktueller Wert: ${latest?.toFixed(0) ?? "–"} / 100${verdict ? ` (${verdict})` : ""}.${trendText} Die Trainingsbereitschaft fasst HFV, Ruhepuls, Schlaf und Trainingsbelastung zu einer Einschätzung zusammen, wie gut dein Körper aktuell für einen intensiven Reiz bereit ist.`;
+
+  const recommendation =
+    sentiment === "negative"
+      ? "Plane heute eher ein lockeres Training oder einen Ruhetag ein."
+      : sentiment === "positive"
+        ? "Guter Zeitpunkt für eine intensive Einheit oder einen Test."
+        : "Moderates Training ist heute gut vertretbar.";
+
+  return { headline, body, sentiment, recommendation };
+}
+
+export interface ReadinessFactor {
+  label: string;
+  value: string;
+  tone: Sentiment;
+}
+
+export function getReadinessFactors(rows: DailyMetricRow[]): ReadinessFactor[] {
+  const last = [...rows].reverse().find((r) => r.readinessScoreV2 !== null) ?? rows[rows.length - 1];
+  if (!last) return [];
+
+  const factors: ReadinessFactor[] = [];
+
+  const recovery = last.readinessDrivers?.find((d) => d.factor === "recovery")?.value ?? last.recoveryScore;
+  if (recovery !== null && recovery !== undefined) {
+    factors.push({
+      label: "Erholung",
+      value: recovery >= 70 ? "Ausgezeichnet" : recovery >= 45 ? "Gut" : recovery >= 25 ? "Ausreichend" : "Niedrig",
+      tone: recovery >= 45 ? "positive" : recovery >= 25 ? "neutral" : "negative",
+    });
+  }
+
+  if (last.acwr !== null) {
+    factors.push({
+      label: "Akute Belastung",
+      value: last.acwr < 0.8 ? "Niedrig" : last.acwr <= 1.3 ? "Ausgeglichen" : "Hoch",
+      tone: last.acwr >= 0.8 && last.acwr <= 1.3 ? "positive" : "neutral",
+    });
+  }
+
+  if (last.sleepScore !== null) {
+    factors.push({
+      label: "Schlaf",
+      value:
+        last.sleepScore >= 80 ? "Ausgezeichnet" : last.sleepScore >= 65 ? "Gut" : last.sleepScore >= 50 ? "Ausreichend" : "Niedrig",
+      tone: last.sleepScore >= 65 ? "positive" : last.sleepScore >= 50 ? "neutral" : "negative",
+    });
+  }
+
+  if (last.hrvZScore !== null) {
+    factors.push({
+      label: "HFV-Status",
+      value: last.hrvZScore >= 0.5 ? "Hoch" : last.hrvZScore >= -0.5 ? "Ausbalanciert" : "Niedrig",
+      tone: last.hrvZScore >= -0.5 ? "positive" : "negative",
+    });
+  }
+
+  return factors;
 }
 
 export function explainLoad(rows: DailyMetricRow[], injuryRisk?: InjuryRiskCache): Explanation {
@@ -212,7 +335,7 @@ export function generateWarnings(
       level: "warning",
       title: "Anzeichen unzureichender Erholung",
       message:
-        "Dein Ruhepuls war an mehreren Tagen ungewöhnlich hoch und deine HRV sinkt gleichzeitig. In Kombination mit deinem Schlaf könnte dies auf unzureichende Erholung oder eine beginnende Erkältung/Erkrankung hindeuten. Heute wäre ein lockeres Training oder ein Ruhetag sinnvoll.",
+        "Dein Ruhepuls war an mehreren Tagen ungewöhnlich hoch und deine HFV sinkt gleichzeitig. In Kombination mit deinem Schlaf könnte dies auf unzureichende Erholung oder eine beginnende Erkältung/Erkrankung hindeuten. Heute wäre ein lockeres Training oder ein Ruhetag sinnvoll.",
     });
   } else if (rhrUp.length >= 2) {
     warnings.push({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOpenRouterClient, COACH_MODEL, friendlyOpenRouterError } from "@/lib/openrouter";
 import { buildAthleteContext, COACH_SYSTEM_PROMPT } from "@/lib/context";
+import { stripMarkdown } from "@/lib/textFormat";
 import type { ChatMessage } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    const reply = (response.choices[0]?.message?.content ?? "").trim();
+    const reply = stripMarkdown(response.choices[0]?.message?.content ?? "");
     return NextResponse.json({ reply });
   } catch (error) {
     const { message, status } = friendlyOpenRouterError(error);

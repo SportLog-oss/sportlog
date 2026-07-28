@@ -226,16 +226,7 @@ export type Goal = {
   unit: string;
   currentValue: number | null;
   notes: string;
-  createdAt: string;
-};
-
-export type PlannedSession = {
-  id: string;
-  date: string;
-  title: string;
-  sportType: string;
-  notes: string;
-  done: boolean;
+  achieved: boolean;
   createdAt: string;
 };
 
@@ -253,6 +244,7 @@ export type StrengthSession = {
   id: string;
   date: string;
   title: string;
+  activityId?: number;
   exercises: StrengthExerciseLog[];
   notes: string;
   createdAt: string;
@@ -274,6 +266,12 @@ export type Benchmark = {
   lowerIsBetter: boolean;
   entries: BenchmarkEntry[];
   createdAt: string;
+};
+
+export type ActivityNote = {
+  activityId: number;
+  note: string;
+  updatedAt: string;
 };
 
 export type ChatMessage = {

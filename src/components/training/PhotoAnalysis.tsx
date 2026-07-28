@@ -2,19 +2,31 @@
 
 import { useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Upload, Loader2, Sparkles, X } from "lucide-react";
+import { Upload, Loader2, Sparkles, X, CheckCircle2, Trophy } from "lucide-react";
+
+type AnalyzeResult = {
+  analysis: string;
+  matchedActivity: { activityId: number; activityName: string; date: string } | null;
+  benchmarkUpdate: { name: string; value: number; isNewBest: boolean } | null;
+};
+
+function formatClock(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export function PhotoAnalysis() {
   const [preview, setPreview] = useState<string | null>(null);
   const [base64, setBase64] = useState<string | null>(null);
   const [mimeType, setMimeType] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [result, setResult] = useState<AnalyzeResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function handleFile(file: File) {
-    setAnalysis(null);
+    setResult(null);
     setError(null);
     setMimeType(file.type);
     const reader = new FileReader();
@@ -40,7 +52,7 @@ export function PhotoAnalysis() {
       if (!res.ok) {
         setError(data.error ?? "Analyse fehlgeschlagen");
       } else {
-        setAnalysis(data.analysis);
+        setResult(data);
       }
     } catch {
       setError("Verbindung fehlgeschlagen.");
@@ -52,7 +64,7 @@ export function PhotoAnalysis() {
   function reset() {
     setPreview(null);
     setBase64(null);
-    setAnalysis(null);
+    setResult(null);
     setError(null);
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -90,7 +102,7 @@ export function PhotoAnalysis() {
             </button>
           </div>
 
-          {!analysis && (
+          {!result && (
             <button
               onClick={analyze}
               disabled={loading}
@@ -103,9 +115,23 @@ export function PhotoAnalysis() {
 
           {error && <p className="text-sm text-negative">{error}</p>}
 
-          {analysis && (
-            <div className="rounded-lg border border-border bg-surface-raised p-3 text-sm whitespace-pre-wrap leading-relaxed">
-              {analysis}
+          {result && (
+            <div className="space-y-2">
+              {result.matchedActivity && (
+                <div className="flex items-center gap-2 rounded-lg border border-positive/30 bg-positive/10 px-3 py-2 text-sm text-positive">
+                  <CheckCircle2 size={15} className="shrink-0" />
+                  Als Notiz zu &quot;{result.matchedActivity.activityName}&quot; ({result.matchedActivity.date}) hinzugefügt
+                </div>
+              )}
+              {result.benchmarkUpdate?.isNewBest && (
+                <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent">
+                  <Trophy size={15} className="shrink-0" />
+                  Neuer Bestwert: {result.benchmarkUpdate.name} – {formatClock(result.benchmarkUpdate.value)}
+                </div>
+              )}
+              <div className="rounded-lg border border-border bg-surface-raised p-3 text-sm whitespace-pre-wrap leading-relaxed">
+                {result.analysis}
+              </div>
             </div>
           )}
         </div>

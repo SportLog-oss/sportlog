@@ -1,9 +1,21 @@
 import { getAnomalies, getDailyMetrics, getInjuryRisk, getTrainingTrends } from "@/lib/data/store";
-import { explainInjuryRisk, explainSleep } from "@/lib/insights";
+import {
+  explainHrv,
+  explainInjuryRisk,
+  explainLoad,
+  explainReadiness,
+  explainRhr,
+  explainSleep,
+  getReadinessFactors,
+} from "@/lib/insights";
 import { ChartCard } from "@/components/charts/ChartCard";
 import { Card } from "@/components/ui/Card";
 import { TrendChart } from "@/components/charts/TrendChart";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { ExplanationPanel } from "@/components/ui/ExplanationPanel";
+import { MetricGauge } from "@/components/ui/MetricGauge";
+import { SleepDetailSection } from "@/components/health/SleepDetailSection";
+import { formatDate, readinessVerdictLabel } from "@/lib/format";
 import { AlertTriangle, TrendingDown, TrendingUp } from "lucide-react";
 
 export default async function HealthPage() {
@@ -29,13 +41,21 @@ export default async function HealthPage() {
   const hrvBaselineData = rows.map((r) => ({ date: r.date, hrv: r.hrv, baseline: r.hrvBaseline60d }));
   const rhrBaselineData = rows.map((r) => ({ date: r.date, restingHr: r.restingHr, baseline: r.rhrBaseline60d }));
   const acwrData = rows.map((r) => ({ date: r.date, acwr: r.acwr }));
+  const tsbData = rows.map((r) => ({ date: r.date, tsb: r.tsb }));
+  const readinessData = rows.map((r) => ({ date: r.date, readinessScoreV2: r.readinessScoreV2 }));
 
   const sleepExplanation = explainSleep(rows);
   const injuryExplanation = explainInjuryRisk(injuryRisk);
+  const hrvExplanation = explainHrv(rows);
+  const rhrExplanation = explainRhr(rows);
+  const loadExplanation = explainLoad(rows, injuryRisk);
+  const readinessExplanation = explainReadiness(rows);
+  const readinessFactors = getReadinessFactors(rows);
+  const lastWithRecovery = [...rows].reverse().find((r) => r.recoveryScore !== null);
 
   const ACTIVITY_METRIC_LABELS: Record<string, string> = {
     rhr: "Ruhepuls",
-    hrv: "HRV",
+    hrv: "HFV",
     sleep_score: "Schlaf-Score",
   };
 
@@ -47,6 +67,49 @@ export default async function HealthPage() {
       </header>
 
       <div className="p-8 space-y-6">
+        <Card title="Trainingsbereitschaft" subtitle="Kombiniert HFV, Ruhepuls, Schlaf und Belastung">
+          <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+            <div className="shrink-0">
+              <MetricGauge
+                value={lastWithRecovery?.readinessScoreV2 ?? 0}
+                label={readinessVerdictLabel(lastWithRecovery?.readinessVerdict)}
+              />
+            </div>
+            {readinessFactors.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 flex-1 w-full">
+                {readinessFactors.map((f) => (
+                  <div key={f.label} className="rounded-lg border border-border bg-surface-raised px-3 py-2">
+                    <p className="text-xs text-muted">{f.label}</p>
+                    <p
+                      className={
+                        "text-sm font-medium " +
+                        (f.tone === "positive"
+                          ? "text-positive"
+                          : f.tone === "negative"
+                            ? "text-negative"
+                            : "text-foreground")
+                      }
+                    >
+                      {f.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="mt-4">
+            <TrendChart
+              data={readinessData}
+              lines={[{ key: "readinessScoreV2", color: "var(--accent)", name: "Trainingsbereitschaft" }]}
+            />
+          </div>
+          <div className="mt-4">
+            <ExplanationPanel explanation={readinessExplanation} />
+          </div>
+        </Card>
+
+        <SleepDetailSection />
+
         <section className="grid md:grid-cols-2 gap-6 scroll-mt-6">
           <div id="sleep-chart">
             <ChartCard
@@ -69,18 +132,32 @@ export default async function HealthPage() {
           </div>
         </section>
 
+        <section>
+          <ChartCard
+            title="Form / TSB (14 Tage)"
+            subtitle="Training Stress Balance"
+            data={tsbData}
+            lines={[{ key: "tsb", color: "var(--positive)", name: "TSB" }]}
+            explanation={loadExplanation}
+            referenceLine={0}
+          />
+        </section>
+
         <section className="grid md:grid-cols-2 gap-6">
           <Card
-            title="HRV vs. 60-Tage-Basiswert"
+            title="HFV vs. 60-Tage-Basiswert"
             subtitle="Zeigt Abweichungen von deinem persönlichen Normalbereich"
           >
             <TrendChart
               data={hrvBaselineData}
               lines={[
-                { key: "hrv", color: "var(--accent)", name: "HRV (ms)" },
+                { key: "hrv", color: "var(--accent)", name: "HFV (ms)" },
                 { key: "baseline", color: "var(--muted)", name: "60-Tage-Basiswert" },
               ]}
             />
+            <div className="mt-4">
+              <ExplanationPanel explanation={hrvExplanation} />
+            </div>
           </Card>
 
           <Card
@@ -94,6 +171,9 @@ export default async function HealthPage() {
                 { key: "baseline", color: "var(--muted)", name: "60-Tage-Basiswert" },
               ]}
             />
+            <div className="mt-4">
+              <ExplanationPanel explanation={rhrExplanation} />
+            </div>
           </Card>
         </section>
 
@@ -154,7 +234,7 @@ export default async function HealthPage() {
                   </span>
                   <Icon size={14} className={a.direction === "up" ? "text-negative" : "text-warning"} />
                   <span className="text-xs text-muted w-12 text-right">z={a.zScore.toFixed(1)}</span>
-                  <span className="text-xs text-muted w-20 text-right">{a.date}</span>
+                  <span className="text-xs text-muted w-20 text-right">{formatDate(a.date)}</span>
                 </div>
               );
             })}

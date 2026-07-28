@@ -1,14 +1,14 @@
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Lightbulb } from 'lucide-react-native';
+import { Lightbulb, Trophy } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
-import { StatTile } from '@/components/ui/StatTile';
 import { WarningBanner } from '@/components/ui/WarningBanner';
-import { ExplanationPanel } from '@/components/ui/ExplanationPanel';
-import { TrendChart } from '@/components/charts/TrendChart';
+import { MetricGauge } from '@/components/ui/MetricGauge';
 import { api } from '@/lib/api';
+import { useForceRefresh } from '@/lib/useForceRefresh';
+import { formatDate, recoveryLabel, sleepPerformanceLabel, strainLabel } from '@/lib/format';
 import type { DashboardResponse } from '@/lib/types';
 
 export default function DashboardScreen() {
@@ -34,6 +34,8 @@ export default function DashboardScreen() {
     }, [load])
   );
 
+  const { refreshing, onRefresh } = useForceRefresh(load);
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -53,34 +55,33 @@ export default function DashboardScreen() {
     );
   }
 
-  const chartLabels = data.rows.map((r) => r.date.slice(5));
-
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
     >
-      <View style={styles.grid}>
-        <StatTile
-          label="Trainingsbereitschaft"
-          value={data.stats.readinessScoreV2 ?? '–'}
-          unit="/ 100"
-          hint={data.stats.readinessVerdict ?? undefined}
-          tone={(data.stats.readinessScoreV2 ?? 50) < 25 ? 'negative' : (data.stats.readinessScoreV2 ?? 50) >= 60 ? 'positive' : 'neutral'}
-        />
-        <StatTile
-          label="Recovery Score"
-          value={data.stats.recoveryScore ?? '–'}
-          unit="/ 100"
-          tone={(data.stats.recoveryScore ?? 50) < 25 ? 'negative' : (data.stats.recoveryScore ?? 50) >= 60 ? 'positive' : 'neutral'}
-        />
-        <StatTile label="HRV" value={data.stats.hrv ?? '–'} unit="ms" hint={`Trend: ${data.stats.hrvTrend}`} tone={data.stats.hrvTrend === 'declining' ? 'negative' : 'neutral'} />
-        <StatTile label="Ruhepuls" value={data.stats.restingHr ?? '–'} unit="bpm" hint={`Trend: ${data.stats.rhrTrend}`} tone={data.stats.rhrTrend === 'rising' ? 'negative' : 'neutral'} />
-        <StatTile label="Schlaf" value={data.stats.sleepScoreAvg} unit="Score" hint={`Ø ${data.stats.sleepHoursAvg} h`} />
-        <StatTile label="Form (TSB)" value={data.stats.tsb ?? '–'} tone={(data.stats.tsb ?? 0) < -20 ? 'negative' : (data.stats.tsb ?? 0) > 15 ? 'positive' : 'neutral'} />
-        <StatTile label="Überlastungsrisiko" value={data.stats.injuryRiskIndex} unit="Index" tone={data.stats.injuryRiskIndex >= 30 ? 'negative' : data.stats.injuryRiskIndex >= 12 ? 'neutral' : 'positive'} />
-        <StatTile label="Aktive Ziele" value={data.stats.goalsCount} />
+      <View style={styles.metricsRow}>
+        <Card style={styles.metricCard}>
+          <Text style={styles.metricTitle}>Erholung</Text>
+          <MetricGauge
+            value={data.stats.recoveryPct ?? 0}
+            label={data.stats.recoveryPct != null ? recoveryLabel(data.stats.recoveryPct) : undefined}
+            size={104}
+          />
+        </Card>
+        <Card style={styles.metricCard}>
+          <Text style={styles.metricTitle}>Belastung</Text>
+          <MetricGauge value={data.stats.strain} max={21} decimals={1} label={strainLabel(data.stats.strain)} size={104} />
+        </Card>
+        <Card style={styles.metricCard}>
+          <Text style={styles.metricTitle}>Schlaf-Perf.</Text>
+          <MetricGauge
+            value={data.stats.sleepPerformance ?? 0}
+            label={data.stats.sleepPerformance != null ? sleepPerformanceLabel(data.stats.sleepPerformance) : undefined}
+            size={104}
+          />
+        </Card>
       </View>
 
       <View style={styles.recommendationBox}>
@@ -100,19 +101,32 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      <Card title="HRV (14 Tage)" subtitle="Herzfrequenzvariabilität">
-        <TrendChart labels={chartLabels} data={data.rows.map((r) => r.hrv)} color={Colors.accent} />
-        <ExplanationPanel explanation={data.explanations.hrv} />
-      </Card>
-
-      <Card title="Ruhepuls (14 Tage)">
-        <TrendChart labels={chartLabels} data={data.rows.map((r) => r.restingHr)} color={Colors.warning} />
-        <ExplanationPanel explanation={data.explanations.rhr} />
-      </Card>
-
-      <Card title="Form / TSB (14 Tage)" subtitle="Training Stress Balance">
-        <TrendChart labels={chartLabels} data={data.rows.map((r) => r.tsb)} color={Colors.positive} />
-        <ExplanationPanel explanation={data.explanations.load} />
+      <Card title="Ziele & Wettkämpfe">
+        <View style={{ gap: 14 }}>
+          <View>
+            <Text style={styles.subLabel}>Aktuelle Ziele</Text>
+            {data.goals.length === 0 && <Text style={styles.emptyText}>Keine Ziele hinterlegt.</Text>}
+            {data.goals.map((g) => (
+              <View key={g.id} style={styles.listRow}>
+                <Text style={styles.listTitle} numberOfLines={1}>{g.title}</Text>
+                <Text style={styles.listMeta}>{formatDate(g.targetDate)}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+              <Trophy size={12} color={Colors.muted} />
+              <Text style={styles.subLabel}>Wettkämpfe</Text>
+            </View>
+            {data.competitions.length === 0 && <Text style={styles.emptyText}>Noch keine Wettkämpfe erfasst.</Text>}
+            {data.competitions.map((c) => (
+              <View key={c.id} style={styles.listRow}>
+                <Text style={styles.listTitle} numberOfLines={1}>{c.name}</Text>
+                <Text style={styles.listMeta}>{formatDate(c.date)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
       </Card>
     </ScrollView>
   );
@@ -124,7 +138,9 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background, padding: 24, gap: 8 },
   errorText: { color: Colors.negative, fontSize: 14, textAlign: 'center' },
   hintText: { color: Colors.muted, fontSize: 12, textAlign: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  metricsRow: { flexDirection: 'row', gap: 8 },
+  metricCard: { flex: 1, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 12 },
+  metricTitle: { fontSize: 11, fontWeight: '600', color: Colors.muted, marginBottom: 4, textAlign: 'center' },
   recommendationBox: {
     flexDirection: 'row',
     gap: 10,
@@ -137,4 +153,9 @@ const styles = StyleSheet.create({
   recommendationTitle: { fontSize: 13, fontWeight: '600', color: Colors.foreground },
   recommendationText: { fontSize: 13, color: Colors.foreground, opacity: 0.9, marginTop: 2, lineHeight: 18 },
   sectionLabel: { fontSize: 12, fontWeight: '600', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  subLabel: { fontSize: 11, fontWeight: '600', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: Colors.muted },
+  listRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
+  listTitle: { fontSize: 13, color: Colors.foreground, flex: 1, marginRight: 8 },
+  listMeta: { fontSize: 12, color: Colors.muted },
 });

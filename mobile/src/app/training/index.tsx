@@ -7,8 +7,10 @@ import { Card } from '@/components/ui/Card';
 import { HrZonesBars } from '@/components/charts/HrZonesBars';
 import { TrendChart } from '@/components/charts/TrendChart';
 import { PhotoAnalysis } from '@/components/training/PhotoAnalysis';
+import { BenchmarksSection } from '@/components/training/BenchmarksSection';
 import { api } from '@/lib/api';
-import { activityLabel, formatDate, formatDistance, formatDuration, formatDurationLabel, formatPace } from '@/lib/format';
+import { useForceRefresh } from '@/lib/useForceRefresh';
+import { activityLabel, formatActivityPace, formatDate, formatDistance, formatDuration, formatDurationLabel, translatePowerProfileTerm } from '@/lib/format';
 import type { TrainingResponse } from '@/lib/types';
 
 const ICONS: Record<string, typeof Bike> = {
@@ -39,6 +41,8 @@ export default function TrainingScreen() {
     }, [load])
   );
 
+  const { refreshing, onRefresh } = useForceRefresh(load);
+
   if (loading || !data) {
     return (
       <View style={styles.centered}>
@@ -51,7 +55,7 @@ export default function TrainingScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
     >
       <Card title="Herzfrequenz-Zonen" subtitle={`${data.hrZones.total_hours}h gesamt`}>
         <HrZonesBars zones={data.hrZones.zones} />
@@ -60,9 +64,9 @@ export default function TrainingScreen() {
       <Card title="Leistungsprofil">
         <View style={{ gap: 6 }}>
           <Row label="FTP" value={`${data.performance.ftp_watts.toFixed(0)} W`} />
-          <Row label="Archetyp" value={data.performance.power_profile.archetype.replace('_', ' ')} />
-          <Row label="Stärken" value={data.performance.power_profile.strengths.join(', ')} />
-          <Row label="Schwächen" value={data.performance.power_profile.limiters.join(', ')} />
+          <Row label="Archetyp" value={translatePowerProfileTerm(data.performance.power_profile.archetype)} />
+          <Row label="Stärken" value={data.performance.power_profile.strengths.map(translatePowerProfileTerm).join(', ')} />
+          <Row label="Schwächen" value={data.performance.power_profile.limiters.map(translatePowerProfileTerm).join(', ')} />
         </View>
       </Card>
 
@@ -75,13 +79,15 @@ export default function TrainingScreen() {
         />
       </Card>
 
+      <BenchmarksSection />
+
       <PhotoAnalysis />
 
       <View style={{ gap: 10 }}>
         <Text style={styles.sectionLabel}>Letzte Einheiten</Text>
         {data.activities.map((act) => {
           const Icon = ICONS[act.activityType] ?? ActivityIcon;
-          const pace = formatPace(act.averagePaceInMinutesPerKilometer);
+          const pace = formatActivityPace(act);
           return (
             <Pressable
               key={act.activityId}

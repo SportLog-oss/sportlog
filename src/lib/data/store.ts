@@ -3,6 +3,7 @@ import path from "node:path";
 import { Redis } from "@upstash/redis";
 import type {
   ActivitiesCache,
+  ActivityNote,
   AnalyticsSummaryCache,
   AnomaliesCache,
   Benchmark,
@@ -12,7 +13,6 @@ import type {
   Goal,
   InjuryRiskCache,
   PerformanceEstimatesCache,
-  PlannedSession,
   StrengthSession,
   TrainingTrendsCache,
 } from "@/lib/types";
@@ -137,14 +137,6 @@ async function saveUserCollection<T>(redisKey: string, filename: string, data: T
   writeJson(path.join(USER_DIR, filename), data);
 }
 
-export function getPlannedSessions(): Promise<PlannedSession[]> {
-  return getUserCollection("planned-sessions", "planned-sessions.json");
-}
-
-export function savePlannedSessions(sessions: PlannedSession[]) {
-  return saveUserCollection("planned-sessions", "planned-sessions.json", sessions);
-}
-
 export function getStrengthSessions(): Promise<StrengthSession[]> {
   return getUserCollection("strength-sessions", "strength-sessions.json");
 }
@@ -159,4 +151,12 @@ export function getBenchmarks(): Promise<Benchmark[]> {
 
 export function saveBenchmarks(benchmarks: Benchmark[]) {
   return saveUserCollection("benchmarks", "benchmarks.json", benchmarks);
+}
+
+export function getActivityNotes(): Promise<ActivityNote[]> {
+  return getUserCollection("activity-notes", "activity-notes.json");
+}
+
+export function saveActivityNotes(notes: ActivityNote[]) {
+  return saveUserCollection("activity-notes", "activity-notes.json", notes);
 }

@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { getDailyMetrics, getInjuryRisk, getTrainingTrends } from "@/lib/data/store";
-import { explainInjuryRisk, explainSleep } from "@/lib/insights";
+import {
+  explainHrv,
+  explainInjuryRisk,
+  explainLoad,
+  explainReadiness,
+  explainRhr,
+  explainSleep,
+  getReadinessFactors,
+} from "@/lib/insights";
 
 export async function GET() {
   const daily = await getDailyMetrics();
@@ -14,6 +22,11 @@ export async function GET() {
     explanations: {
       sleep: explainSleep(daily.rows),
       injuryRisk: explainInjuryRisk(injuryRisk),
+      hrv: explainHrv(daily.rows),
+      rhr: explainRhr(daily.rows),
+      load: explainLoad(daily.rows, injuryRisk),
+      readiness: explainReadiness(daily.rows),
     },
+    readinessFactors: getReadinessFactors(daily.rows),
   });
 }

@@ -28,6 +28,40 @@ export function activityLabel(type: string): string {
   return ACTIVITY_LABELS[type] ?? type;
 }
 
+const READINESS_VERDICT_LABELS: Record<string, string> = {
+  rest: "Ruhe empfohlen",
+  easy: "Locker",
+  steady: "Gleichmäßig",
+  go: "Bereit für Intensität",
+};
+
+export function readinessVerdictLabel(verdict: string | null | undefined): string {
+  if (!verdict) return "";
+  return READINESS_VERDICT_LABELS[verdict] ?? verdict;
+}
+
+const POWER_PROFILE_TERMS: Record<string, string> = {
+  sprinter: "Sprinter",
+  time_trialist: "Zeitfahrer",
+  puncheur: "Angriffsfahrer",
+  climber: "Kletterer",
+  all_rounder: "Allrounder",
+  pursuiter: "Verfolger",
+  neuromuscular: "Neuromuskulär (Sprintkraft)",
+  anaerobic_capacity: "Anaerobe Kapazität",
+  aerobic_capacity: "Aerobe Kapazität",
+  vo2max: "VO2max",
+  threshold: "Schwelle",
+  endurance: "Ausdauer",
+  sprint: "Sprint",
+};
+
+export function translatePowerProfileTerm(value: string): string {
+  const key = value.toLowerCase();
+  if (POWER_PROFILE_TERMS[key]) return POWER_PROFILE_TERMS[key];
+  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function formatDurationLabel(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   const min = seconds / 60;
@@ -39,4 +73,33 @@ export function formatPace(minPerKm: number | undefined): string | null {
   const min = Math.floor(minPerKm);
   const sec = Math.round((minPerKm - min) * 60);
   return `${min}:${sec.toString().padStart(2, "0")} /km`;
+}
+
+const ROWING_TYPES = ["ROWING_V2", "INDOOR_ROWING"];
+
+export function formatActivityPace(activity: {
+  activityType: string;
+  distanceInMeters: number;
+  durationInSeconds: number;
+  averageSpeedInMetersPerSecond?: number;
+  averagePaceInMinutesPerKilometer?: number;
+}): string | null {
+  if (activity.activityType === "CYCLING") {
+    const speedMps =
+      activity.averageSpeedInMetersPerSecond ??
+      (activity.durationInSeconds > 0 ? activity.distanceInMeters / activity.durationInSeconds : undefined);
+    if (!speedMps || !Number.isFinite(speedMps)) return null;
+    return `${(speedMps * 3.6).toFixed(1)} km/h`;
+  }
+
+  if (ROWING_TYPES.includes(activity.activityType)) {
+    if (!activity.distanceInMeters || activity.distanceInMeters <= 0 || !activity.durationInSeconds) return null;
+    const secPer500 = activity.durationInSeconds / (activity.distanceInMeters / 500);
+    if (!Number.isFinite(secPer500)) return null;
+    const min = Math.floor(secPer500 / 60);
+    const sec = Math.round(secPer500 % 60);
+    return `${min}:${sec.toString().padStart(2, "0")} /500m`;
+  }
+
+  return formatPace(activity.averagePaceInMinutesPerKilometer);
 }

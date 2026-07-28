@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     unit: body.unit ?? "",
     currentValue: body.currentValue ?? null,
     notes: body.notes ?? "",
+    achieved: false,
     createdAt: new Date().toISOString().slice(0, 10),
   };
 

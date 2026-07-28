@@ -28,11 +28,101 @@ export function activityLabel(type: string): string {
   return ACTIVITY_LABELS[type] ?? type;
 }
 
+const READINESS_VERDICT_LABELS: Record<string, string> = {
+  rest: 'Ruhe empfohlen',
+  easy: 'Locker',
+  steady: 'Gleichmäßig',
+  go: 'Bereit für Intensität',
+};
+
+export function readinessVerdictLabel(verdict: string | null | undefined): string {
+  if (!verdict) return '';
+  return READINESS_VERDICT_LABELS[verdict] ?? verdict;
+}
+
+const POWER_PROFILE_TERMS: Record<string, string> = {
+  sprinter: 'Sprinter',
+  time_trialist: 'Zeitfahrer',
+  puncheur: 'Angriffsfahrer',
+  climber: 'Kletterer',
+  all_rounder: 'Allrounder',
+  pursuiter: 'Verfolger',
+  neuromuscular: 'Neuromuskulär (Sprintkraft)',
+  anaerobic_capacity: 'Anaerobe Kapazität',
+  aerobic_capacity: 'Aerobe Kapazität',
+  vo2max: 'VO2max',
+  threshold: 'Schwelle',
+  endurance: 'Ausdauer',
+  sprint: 'Sprint',
+};
+
+export function translatePowerProfileTerm(value: string): string {
+  const key = value.toLowerCase();
+  if (POWER_PROFILE_TERMS[key]) return POWER_PROFILE_TERMS[key];
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function formatPace(minPerKm?: number): string | null {
   if (!minPerKm || !Number.isFinite(minPerKm)) return null;
   const min = Math.floor(minPerKm);
   const sec = Math.round((minPerKm - min) * 60);
   return `${min}:${sec.toString().padStart(2, '0')} /km`;
+}
+
+const ROWING_TYPES = ['ROWING_V2', 'INDOOR_ROWING'];
+
+export function formatActivityPace(activity: {
+  activityType: string;
+  distanceInMeters: number;
+  durationInSeconds: number;
+  averageSpeedInMetersPerSecond?: number;
+  averagePaceInMinutesPerKilometer?: number;
+}): string | null {
+  if (activity.activityType === 'CYCLING') {
+    const speedMps =
+      activity.averageSpeedInMetersPerSecond ??
+      (activity.durationInSeconds > 0 ? activity.distanceInMeters / activity.durationInSeconds : undefined);
+    if (!speedMps || !Number.isFinite(speedMps)) return null;
+    return `${(speedMps * 3.6).toFixed(1)} km/h`;
+  }
+
+  if (ROWING_TYPES.includes(activity.activityType)) {
+    if (!activity.distanceInMeters || activity.distanceInMeters <= 0 || !activity.durationInSeconds) return null;
+    const secPer500 = activity.durationInSeconds / (activity.distanceInMeters / 500);
+    if (!Number.isFinite(secPer500)) return null;
+    const min = Math.floor(secPer500 / 60);
+    const sec = Math.round(secPer500 % 60);
+    return `${min}:${sec.toString().padStart(2, '0')} /500m`;
+  }
+
+  return formatPace(activity.averagePaceInMinutesPerKilometer);
+}
+
+export function recoveryLabel(pct: number): string {
+  if (pct < 34) return 'Niedrig';
+  if (pct < 67) return 'Mittel';
+  return 'Hoch';
+}
+
+export function strainLabel(strain: number): string {
+  if (strain < 10) return 'Leicht';
+  if (strain < 14) return 'Moderat';
+  if (strain < 18) return 'Hoch';
+  return 'Sehr hoch';
+}
+
+export function sleepPerformanceLabel(pct: number): string {
+  if (pct < 70) return 'Unzureichend';
+  if (pct < 90) return 'Ausreichend';
+  return 'Optimal';
+}
+
+export function parseGermanDateInput(input: string): string {
+  const trimmed = input.trim();
+  const match = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) return trimmed;
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
 export function formatDurationLabel(seconds: number): string {

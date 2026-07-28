@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     id: `strength-${Date.now()}`,
     date: body.date,
     title: body.title ?? "Krafttraining",
+    activityId: body.activityId,
     exercises: body.exercises ?? [],
     notes: body.notes ?? "",
     createdAt: new Date().toISOString().slice(0, 10),

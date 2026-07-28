@@ -40,9 +40,9 @@ export async function buildAthleteContext(): Promise<string> {
   lines.push(`Verletzungs-/Überlastungsrisiko-Index: ${injuryRisk.index} (Treiber: ${injuryRisk.drivers.join(", ") || "keine"}).`);
   lines.push("");
 
-  lines.push("== HRV & Ruhepuls (letzte 14 Tage) ==");
+  lines.push("== HFV & Ruhepuls (letzte 14 Tage) ==");
   lines.push(
-    `HRV: 7-Tage-Ø ${trends.recovery.hrv_7day_avg}, 14-Tage-Ø ${trends.recovery.hrv_14day_avg}, Trend: ${trends.recovery.hrv_trend}.`
+    `HFV: 7-Tage-Ø ${trends.recovery.hrv_7day_avg}, 14-Tage-Ø ${trends.recovery.hrv_14day_avg}, Trend: ${trends.recovery.hrv_trend}.`
   );
   lines.push(
     `Ruhepuls: 7-Tage-Ø ${trends.recovery.rhr_7day_avg}, 14-Tage-Ø ${trends.recovery.rhr_14day_avg}, Trend: ${trends.recovery.rhr_trend}.`
@@ -116,7 +116,7 @@ export async function buildAthleteContext(): Promise<string> {
 
 export const COACH_SYSTEM_PROMPT = `Du bist ein persönlicher KI-Coach für einen Rudersportler: eine Kombination aus Trainer, Sportwissenschaftler und Gesundheitsanalyst, integriert in dessen Trainings- und Gesundheits-App.
 
-Du hast Zugriff auf einen aktuellen Datenschnappschuss des Athleten (Trainingsdaten, HRV, Ruhepuls, Schlaf, Belastung, Ziele, Wettkämpfe). Nutze diese Daten, um konkrete, verständliche und wissenschaftlich fundierte Antworten zu geben.
+Du hast Zugriff auf einen aktuellen Datenschnappschuss des Athleten (Trainingsdaten, HFV, Ruhepuls, Schlaf, Belastung, Ziele, Wettkämpfe). Nutze diese Daten, um konkrete, verständliche und wissenschaftlich fundierte Antworten zu geben.
 
 Regeln:
 - Antworte auf Deutsch, klar und konkret, ohne unnötigen Fachjargon (wenn du Fachbegriffe nutzt, erkläre sie kurz).
@@ -125,4 +125,4 @@ Regeln:
 - Sei ehrlich über Unsicherheiten in den Daten (z.B. fehlende Werte, kurze Zeiträume).
 - Gib, wo sinnvoll, eine konkrete Handlungsempfehlung für heute/die nächsten Tage.
 - Halte Antworten fokussiert – lieber präzise als ausufernd.
-- Formatierung: schreibe in normalem Fließtext mit kurzen Absätzen und ggf. einfachen Aufzählungspunkten (-). Verwende KEINE Markdown-Tabellen (keine |-Zeichen), keine Überschriften mit # und keine verschachtelten Formatierungen – die Chat-Oberfläche stellt nur Klartext dar.`;
+- Formatierung: schreibe in normalem Fließtext mit kurzen Absätzen und ggf. einfachen Aufzählungspunkten (-). Verwende KEINE Markdown-Formatierung jeglicher Art: keine Sternchen für Fett/Kursiv (**text** oder *text*), keine Tabellen (keine |-Zeichen), keine Überschriften mit #, keine Backticks. Die Chat-Oberfläche stellt ausschließlich Klartext dar – jedes Sonderzeichen zur Formatierung erscheint dem Nutzer wörtlich auf dem Bildschirm.`;

@@ -1,7 +1,10 @@
 import { getActivities } from "@/lib/data/store";
 import { Card } from "@/components/ui/Card";
 import { ActivityHrZones } from "@/components/charts/ActivityHrZones";
-import { activityLabel, formatDate, formatDistance, formatDuration, formatPace } from "@/lib/format";
+import { StrengthLogSection } from "@/components/training/StrengthLogSection";
+import { NotesSection } from "@/components/training/NotesSection";
+import { ActivityDetailsSection } from "@/components/training/ActivityDetailsSection";
+import { activityLabel, formatActivityPace, formatDate, formatDistance, formatDuration } from "@/lib/format";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Flame, Gauge, HeartPulse, TrendingUp, Zap } from "lucide-react";
@@ -13,8 +16,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
 
   if (!activity) notFound();
 
-  const pace = formatPace(activity.averagePaceInMinutesPerKilometer);
-  const speedKmh = activity.averageSpeedInMetersPerSecond ? (activity.averageSpeedInMetersPerSecond * 3.6).toFixed(1) : null;
+  const pace = formatActivityPace(activity);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -50,7 +52,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
             <div className="flex items-center gap-2 text-xs text-muted mb-1">
               <TrendingUp size={13} /> Tempo
             </div>
-            <p className="text-xl font-semibold">{pace ?? (speedKmh ? `${speedKmh} km/h` : "–")}</p>
+            <p className="text-xl font-semibold">{pace ?? "–"}</p>
             {activity.avgCadence && <p className="text-xs text-muted mt-0.5">Kadenz Ø {activity.avgCadence.toFixed(0)}</p>}
           </Card>
           <Card className="!p-4">
@@ -87,13 +89,13 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
               )}
               {activity.intensityFactor !== undefined && (
                 <div>
-                  <span className="text-xs text-muted">Intensity Factor</span>
+                  <span className="text-xs text-muted">Intensitätsfaktor</span>
                   <span className="font-medium block">{activity.intensityFactor.toFixed(2)}</span>
                 </div>
               )}
               {activity.efficiencyFactor !== undefined && (
                 <div>
-                  <span className="text-xs text-muted">Efficiency Factor</span>
+                  <span className="text-xs text-muted">Effizienzfaktor</span>
                   <span className="font-medium block">{activity.efficiencyFactor.toFixed(2)}</span>
                 </div>
               )}
@@ -101,11 +103,17 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
           </Card>
         )}
 
-        <Card title="Notizen">
-          <p className="text-sm text-muted">
-            {activity.notes || "Noch keine Notizen zu dieser Einheit. (Notizfunktion folgt.)"}
-          </p>
-        </Card>
+        <ActivityDetailsSection activityId={activity.activityId} />
+
+        {activity.activityType === "STRENGTH_TRAINING" && (
+          <StrengthLogSection
+            activityId={activity.activityId}
+            date={new Date(activity.startTimeInSeconds * 1000).toISOString().slice(0, 10)}
+            defaultTitle={activity.activityName}
+          />
+        )}
+
+        <NotesSection activityId={activity.activityId} />
       </div>
     </div>
   );

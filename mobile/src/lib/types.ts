@@ -53,6 +53,7 @@ export interface Goal {
   unit: string;
   currentValue: number | null;
   notes: string;
+  achieved: boolean;
   createdAt: string;
 }
 
@@ -77,16 +78,6 @@ export interface CompetitionResult {
   createdAt: string;
 }
 
-export interface PlannedSession {
-  id: string;
-  date: string;
-  title: string;
-  sportType: string;
-  notes: string;
-  done: boolean;
-  createdAt: string;
-}
-
 export interface StrengthSet {
   weightKg: number | null;
   reps: number | null;
@@ -101,6 +92,7 @@ export interface StrengthSession {
   id: string;
   date: string;
   title: string;
+  activityId?: number;
   exercises: StrengthExerciseLog[];
   notes: string;
   createdAt: string;
@@ -168,30 +160,21 @@ export interface CurvePoint {
   paceDisplay?: string;
 }
 
+export interface ReadinessFactor {
+  label: string;
+  value: string;
+  tone: Sentiment;
+}
+
 export interface DashboardResponse {
   fetchedAt: string;
-  rows: DailyMetricRow[];
   stats: {
-    readinessScoreV2: number | null;
-    readinessVerdict: string | null;
-    recoveryScore: number | null;
-    hrv: number | null;
-    hrvTrend: string;
-    restingHr: number | null;
-    rhrTrend: string;
-    sleepScoreAvg: number;
-    sleepHoursAvg: number;
-    tsb: number | null;
-    injuryRiskIndex: number;
-    goalsCount: number;
+    recoveryPct: number | null;
+    strain: number;
+    sleepPerformance: number | null;
   };
   recommendation: string;
   warnings: Warning[];
-  explanations: {
-    hrv: Explanation;
-    rhr: Explanation;
-    load: Explanation;
-  };
   goals: Goal[];
   competitions: CompetitionResult[];
 }
@@ -214,6 +197,12 @@ export interface HealthResponse {
   rows: DailyMetricRow[];
   trends: {
     sleep: { avg_duration_hours: number; avg_score: number; nights_below_7h: number; nights_tracked: number };
+    recovery: {
+      hrv_trend: string;
+      hrv_values: { date: string; hrv: number }[];
+      rhr_trend: string;
+      rhr_values: { date: string; rhr: number }[];
+    };
   };
   injuryRisk: {
     index: number;
@@ -224,5 +213,10 @@ export interface HealthResponse {
   explanations: {
     sleep: Explanation;
     injuryRisk: Explanation;
+    hrv: Explanation;
+    rhr: Explanation;
+    load: Explanation;
+    readiness: Explanation;
   };
+  readinessFactors: ReadinessFactor[];
 }

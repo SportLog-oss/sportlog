@@ -35,14 +35,24 @@ export const GLOSSARY: Record<string, { term: string; explanation: string }> = {
       "Ein kombinierter Wert (0-100) aus Erholung, Form (TSB) und weiteren Faktoren, der einschätzt, wie bereit dein Körper heute für Belastung ist.",
   },
   recoveryScore: {
-    term: "Recovery Score",
+    term: "Erholung",
     explanation:
-      "Misst, wie gut du dich seit der letzten Belastung erholt hast – basierend auf HRV, Ruhepuls und Schlaf der letzten Nacht.",
+      "Misst in Prozent, wie bereit dein Körper für neue Belastung ist – basierend auf HFV, Ruhepuls und Schlaf der letzten Nacht. Hoch = gut erholt, niedrig = Körper braucht mehr Regeneration.",
+  },
+  strain: {
+    term: "Belastung",
+    explanation:
+      "Schätzt die kardiovaskuläre Anstrengung des Tages auf einer Skala von 0 bis 21, abgeleitet aus deiner Trainingslast (ähnlich wie WHOOPs Strain-Konzept, aber kein identischer proprietärer Algorithmus). Hohe Werte über mehrere Tage in Folge ohne ausreichende Erholung erhöhen das Überlastungsrisiko.",
+  },
+  sleepPerformance: {
+    term: "Schlaf-Performance",
+    explanation:
+      "Vergleicht deine tatsächliche Schlafdauer mit deinem persönlichen Schlafbedarf. 100% bedeutet, dass du genau so viel geschlafen hast, wie dein Körper aktuell braucht.",
   },
   hrv: {
-    term: "HRV",
+    term: "HFV",
     explanation:
-      "Herzfrequenzvariabilität – die Schwankung der Zeit zwischen Herzschlägen. Höhere Werte deuten meist auf bessere Erholung und geringeren Stress hin.",
+      "Herzfrequenzvariabilität (englisch HRV) – die Schwankung der Zeit zwischen Herzschlägen. Höhere Werte deuten meist auf bessere Erholung und geringeren Stress hin.",
   },
   rampRate: {
     term: "Rampenrate",

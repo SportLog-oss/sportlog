@@ -11,14 +11,12 @@ import {
   Target,
   MessageCircleHeart,
   Waves,
-  CalendarRange,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/training", label: "Training", icon: Activity },
   { href: "/health", label: "Gesundheit", icon: HeartPulse },
-  { href: "/trainingsplan", label: "Trainingsplan", icon: CalendarRange },
   { href: "/competitions", label: "Wettkämpfe", icon: Trophy },
   { href: "/goals", label: "Ziele", icon: Target },
   { href: "/coach", label: "KI-Coach", icon: MessageCircleHeart },
@@ -26,6 +24,8 @@ const NAV_ITEMS = [
 
 export function Sidebar({ freshnessLabel }: { freshnessLabel?: string }) {
   const pathname = usePathname();
+
+  if (pathname === "/login") return null;
 
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col border-r border-border bg-surface/60 px-4 py-6 shrink-0">

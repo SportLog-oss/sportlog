@@ -1,52 +1,42 @@
+import { getAnomalies, getCompetitions, getDailyMetrics, getGoals, getInjuryRisk } from "@/lib/data/store";
 import {
-  getAnomalies,
-  getCompetitions,
-  getDailyMetrics,
-  getGoals,
-  getInjuryRisk,
-  getTrainingTrends,
-} from "@/lib/data/store";
-import {
-  explainHrv,
-  explainLoad,
-  explainRhr,
+  computeSleepPerformance,
+  computeStrain,
   generateTodayRecommendation,
   generateWarnings,
+  recoveryLabel,
+  sleepPerformanceLabel,
+  strainLabel,
 } from "@/lib/insights";
-import { StatTile } from "@/components/ui/StatTile";
 import { WarningBanner } from "@/components/ui/WarningBanner";
 import { Card } from "@/components/ui/Card";
-import { ChartCard } from "@/components/charts/ChartCard";
-import { HeartPulse, Moon, Activity, ShieldAlert, Lightbulb, Trophy, Target } from "lucide-react";
+import { MetricGauge } from "@/components/ui/MetricGauge";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { formatDate } from "@/lib/format";
+import { Lightbulb, Trophy } from "lucide-react";
 import Link from "next/link";
 
 export default async function DashboardPage() {
   const daily = await getDailyMetrics();
-  const trends = await getTrainingTrends();
   const injuryRisk = await getInjuryRisk();
   const anomalies = await getAnomalies();
   const goals = await getGoals();
   const competitions = await getCompetitions();
 
   const rows = daily.rows;
-  const last = rows[rows.length - 1];
   const lastWithRecovery = [...rows].reverse().find((r) => r.recoveryScore !== null);
+  const lastWithLoad = [...rows].reverse().find((r) => r.dailyLoad !== null);
+  const lastWithSleep = [...rows].reverse().find((r) => r.sleepDurationMin !== null && r.sleepNeedMin !== null);
+
+  const recoveryPct = lastWithRecovery?.recoveryScore ?? null;
+  const strain = computeStrain(lastWithLoad?.dailyLoad ?? null);
+  const sleepPerformance = computeSleepPerformance(lastWithSleep?.sleepDurationMin, lastWithSleep?.sleepNeedMin);
 
   const warnings = generateWarnings(rows, anomalies.anomalies, injuryRisk);
   const recommendation = generateTodayRecommendation(rows, injuryRisk);
 
-  const hrvExplanation = explainHrv(rows);
-  const rhrExplanation = explainRhr(rows);
-  const loadExplanation = explainLoad(rows, injuryRisk);
-
-  const chartData = rows.map((r) => ({
-    date: r.date,
-    hrv: r.hrv,
-    restingHr: r.restingHr,
-    tsb: r.tsb,
-  }));
-
-  const upcomingGoals = goals.slice(0, 3);
+  const activeGoals = goals.filter((g) => !g.achieved);
+  const upcomingGoals = activeGoals.slice(0, 3);
   const recentCompetitions = competitions.slice(0, 3);
 
   return (
@@ -59,87 +49,43 @@ export default async function DashboardPage() {
       </header>
 
       <div className="p-8 space-y-8">
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatTile
-            label="Trainingsbereitschaft"
-            value={lastWithRecovery?.readinessScoreV2 ?? "–"}
-            unit="/ 100"
-            icon={Activity}
-            glossaryKey="readinessScore"
-            tone={
-              (lastWithRecovery?.readinessScoreV2 ?? 50) < 25
-                ? "negative"
-                : (lastWithRecovery?.readinessScoreV2 ?? 50) >= 60
-                  ? "positive"
-                  : "neutral"
+        <section className="grid md:grid-cols-3 gap-6">
+          <Card
+            title={
+              <span className="flex items-center gap-1.5">
+                Erholung <InfoTooltip term="recoveryScore" />
+              </span>
             }
-            hint={lastWithRecovery?.readinessVerdict ?? undefined}
-          />
-          <StatTile
-            label="Recovery Score"
-            value={lastWithRecovery?.recoveryScore ?? "–"}
-            unit="/ 100"
-            icon={HeartPulse}
-            glossaryKey="recoveryScore"
-            tone={
-              (lastWithRecovery?.recoveryScore ?? 50) < 25
-                ? "negative"
-                : (lastWithRecovery?.recoveryScore ?? 50) >= 60
-                  ? "positive"
-                  : "neutral"
+          >
+            <div className="flex justify-center py-2">
+              <MetricGauge value={recoveryPct ?? 0} label={recoveryPct != null ? recoveryLabel(recoveryPct) : undefined} />
+            </div>
+          </Card>
+          <Card
+            title={
+              <span className="flex items-center gap-1.5">
+                Belastung <InfoTooltip term="strain" />
+              </span>
             }
-          />
-          <StatTile
-            label="HRV"
-            value={last.hrv ?? trends.recovery.hrv_values.at(-1)?.hrv ?? "–"}
-            unit="ms"
-            icon={Activity}
-            glossaryKey="hrv"
-            tone={trends.recovery.hrv_trend === "declining" ? "warning" : "neutral"}
-            hint={`Trend: ${trends.recovery.hrv_trend}`}
-            href="#hrv-chart"
-          />
-          <StatTile
-            label="Ruhepuls"
-            value={last.restingHr ?? trends.recovery.rhr_values.at(-1)?.rhr ?? "–"}
-            unit="bpm"
-            icon={HeartPulse}
-            tone={trends.recovery.rhr_trend === "rising" ? "warning" : "neutral"}
-            hint={`Trend: ${trends.recovery.rhr_trend}`}
-            href="#rhr-chart"
-          />
-          <StatTile
-            label="Schlaf"
-            value={trends.sleep.avg_score}
-            unit="Score"
-            icon={Moon}
-            hint={`Ø ${trends.sleep.avg_duration_hours} h`}
-            href="/health#sleep-chart"
-          />
-          <StatTile
-            label="Trainingsbelastung (TSB)"
-            value={last.tsb ?? "–"}
-            unit="Form"
-            icon={Activity}
-            glossaryKey="tsb"
-            tone={(last.tsb ?? 0) < -20 ? "negative" : (last.tsb ?? 0) > 15 ? "positive" : "neutral"}
-            href="#tsb-chart"
-          />
-          <StatTile
-            label="Überlastungsrisiko"
-            value={injuryRisk.index}
-            unit="Index"
-            icon={ShieldAlert}
-            glossaryKey="injuryRiskIndex"
-            tone={injuryRisk.index >= 30 ? "negative" : injuryRisk.index >= 12 ? "warning" : "positive"}
-            href="/health#injury-risk-chart"
-          />
-          <StatTile
-            label="Aktive Ziele"
-            value={goals.length}
-            icon={Target}
-            href="/goals"
-          />
+          >
+            <div className="flex justify-center py-2">
+              <MetricGauge value={strain} max={21} decimals={1} label={strainLabel(strain)} />
+            </div>
+          </Card>
+          <Card
+            title={
+              <span className="flex items-center gap-1.5">
+                Schlaf-Performance <InfoTooltip term="sleepPerformance" />
+              </span>
+            }
+          >
+            <div className="flex justify-center py-2">
+              <MetricGauge
+                value={sleepPerformance ?? 0}
+                label={sleepPerformance != null ? sleepPerformanceLabel(sleepPerformance) : undefined}
+              />
+            </div>
+          </Card>
         </section>
 
         <section className="rounded-xl border border-accent/30 bg-accent-soft p-4 flex gap-3 items-start">
@@ -159,71 +105,38 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        <section className="grid md:grid-cols-2 gap-6 scroll-mt-6">
-          <div id="hrv-chart">
-            <ChartCard
-              title="HRV (14 Tage)"
-              subtitle="Herzfrequenzvariabilität"
-              data={chartData}
-              lines={[{ key: "hrv", color: "var(--accent)", name: "HRV (ms)" }]}
-              explanation={hrvExplanation}
-            />
-          </div>
-          <div id="rhr-chart">
-            <ChartCard
-              title="Ruhepuls (14 Tage)"
-              data={chartData}
-              lines={[{ key: "restingHr", color: "var(--warning)", name: "Ruhepuls (bpm)" }]}
-              explanation={rhrExplanation}
-            />
-          </div>
-        </section>
-
-        <section className="grid md:grid-cols-2 gap-6 scroll-mt-6">
-          <div id="tsb-chart">
-            <ChartCard
-              title="Form / TSB (14 Tage)"
-              subtitle="Training Stress Balance"
-              data={chartData}
-              lines={[{ key: "tsb", color: "var(--positive)", name: "TSB" }]}
-              explanation={loadExplanation}
-              referenceLine={0}
-            />
-          </div>
-
-          <Card title="Ziele & Wettkämpfe" action={<Link href="/goals" className="text-xs text-accent">Alle Ziele →</Link>}>
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-xs font-semibold text-muted uppercase mb-2">Aktuelle Ziele</h4>
-                <div className="space-y-2">
-                  {upcomingGoals.length === 0 && <p className="text-sm text-muted">Keine Ziele hinterlegt.</p>}
-                  {upcomingGoals.map((g) => (
-                    <div key={g.id} className="flex items-center justify-between text-sm">
-                      <span className="truncate">{g.title}</span>
-                      <span className="text-muted shrink-0 ml-2">{g.targetDate}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="pt-3 border-t border-border">
-                <h4 className="text-xs font-semibold text-muted uppercase mb-2 flex items-center gap-1.5">
-                  <Trophy size={13} /> Wettkämpfe
-                </h4>
-                <div className="space-y-2">
-                  {recentCompetitions.length === 0 && (
-                    <p className="text-sm text-muted">Noch keine Wettkämpfe erfasst.</p>
-                  )}
-                  {recentCompetitions.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between text-sm">
-                      <span className="truncate">{c.name}</span>
-                      <span className="text-muted shrink-0 ml-2">{c.date}</span>
-                    </div>
-                  ))}
-                </div>
+        <Card title="Ziele & Wettkämpfe" action={<Link href="/goals" className="text-xs text-accent">Alle Ziele →</Link>}>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-xs font-semibold text-muted uppercase mb-2">Aktuelle Ziele</h4>
+              <div className="space-y-2">
+                {upcomingGoals.length === 0 && <p className="text-sm text-muted">Keine Ziele hinterlegt.</p>}
+                {upcomingGoals.map((g) => (
+                  <div key={g.id} className="flex items-center justify-between text-sm">
+                    <span className="truncate">{g.title}</span>
+                    <span className="text-muted shrink-0 ml-2">{formatDate(g.targetDate)}</span>
+                  </div>
+                ))}
               </div>
             </div>
-          </Card>
-        </section>
+            <div className="md:pl-6 md:border-l border-border pt-4 md:pt-0 border-t md:border-t-0">
+              <h4 className="text-xs font-semibold text-muted uppercase mb-2 flex items-center gap-1.5">
+                <Trophy size={13} /> Wettkämpfe
+              </h4>
+              <div className="space-y-2">
+                {recentCompetitions.length === 0 && (
+                  <p className="text-sm text-muted">Noch keine Wettkämpfe erfasst.</p>
+                )}
+                {recentCompetitions.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between text-sm">
+                    <span className="truncate">{c.name}</span>
+                    <span className="text-muted shrink-0 ml-2">{formatDate(c.date)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     </div>
   );

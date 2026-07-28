@@ -17,7 +17,7 @@ import type { ChatMessage } from '@/lib/types';
 
 const SUGGESTIONS = [
   'Bin ich heute bereit für ein intensives Training?',
-  'Warum ist meine HRV zuletzt gesunken?',
+  'Warum ist meine HFV zuletzt gesunken?',
   'Vergleiche diese Woche mit letzter Woche.',
   'Gibt es Anzeichen für Übertraining?',
 ];

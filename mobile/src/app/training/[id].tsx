@@ -5,8 +5,11 @@ import { Flame, Gauge, HeartPulse, TrendingUp, Zap } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { ActivityHrZones } from '@/components/charts/ActivityHrZones';
+import { StrengthLogSection } from '@/components/training/StrengthLogSection';
+import { NotesSection } from '@/components/training/NotesSection';
+import { ActivityDetailsSection } from '@/components/training/ActivityDetailsSection';
 import { api } from '@/lib/api';
-import { activityLabel, formatDate, formatDistance, formatDuration, formatPace } from '@/lib/format';
+import { activityLabel, formatActivityPace, formatDate, formatDistance, formatDuration } from '@/lib/format';
 import type { Activity } from '@/lib/types';
 
 export default function ActivityDetailScreen() {
@@ -38,8 +41,7 @@ export default function ActivityDetailScreen() {
     );
   }
 
-  const pace = formatPace(activity.averagePaceInMinutesPerKilometer);
-  const speedKmh = activity.averageSpeedInMetersPerSecond ? (activity.averageSpeedInMetersPerSecond * 3.6).toFixed(1) : null;
+  const pace = formatActivityPace(activity);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -67,7 +69,7 @@ export default function ActivityDetailScreen() {
             <TrendingUp size={13} color={Colors.muted} />
             <Text style={styles.tileLabel}>Tempo</Text>
           </View>
-          <Text style={styles.tileValue}>{pace ?? (speedKmh ? `${speedKmh} km/h` : '–')}</Text>
+          <Text style={styles.tileValue}>{pace ?? '–'}</Text>
           {!!activity.avgCadence && <Text style={styles.tileHint}>Kadenz Ø {activity.avgCadence.toFixed(0)}</Text>}
         </Card>
         <Card style={styles.tile}>
@@ -97,17 +99,23 @@ export default function ActivityDetailScreen() {
               <Row icon={<Zap size={13} color={Colors.muted} />} label="Ø Leistung" value={`${activity.avgPower} W`} />
             )}
             {activity.normalizedPower !== undefined && <Row label="Normalisierte Leistung" value={`${activity.normalizedPower} W`} />}
-            {activity.intensityFactor !== undefined && <Row label="Intensity Factor" value={activity.intensityFactor.toFixed(2)} />}
-            {activity.efficiencyFactor !== undefined && <Row label="Efficiency Factor" value={activity.efficiencyFactor.toFixed(2)} />}
+            {activity.intensityFactor !== undefined && <Row label="Intensitätsfaktor" value={activity.intensityFactor.toFixed(2)} />}
+            {activity.efficiencyFactor !== undefined && <Row label="Effizienzfaktor" value={activity.efficiencyFactor.toFixed(2)} />}
           </View>
         </Card>
       )}
 
-      <Card title="Notizen">
-        <Text style={{ color: Colors.muted, fontSize: 13 }}>
-          {activity.notes || 'Noch keine Notizen zu dieser Einheit.'}
-        </Text>
-      </Card>
+      <ActivityDetailsSection activityId={activity.activityId} />
+
+      {activity.activityType === 'STRENGTH_TRAINING' && (
+        <StrengthLogSection
+          activityId={activity.activityId}
+          date={new Date(activity.startTimeInSeconds * 1000).toISOString().slice(0, 10)}
+          defaultTitle={activity.activityName}
+        />
+      )}
+
+      <NotesSection activityId={activity.activityId} />
     </ScrollView>
   );
 }
