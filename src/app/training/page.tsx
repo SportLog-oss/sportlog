@@ -5,6 +5,7 @@ import { HrZonesChart } from "@/components/charts/HrZonesChart";
 import { CurveChart } from "@/components/charts/CurveChart";
 import { activityLabel, formatDate, formatDistance, formatDuration, formatPace } from "@/lib/format";
 import { Bike, Dumbbell, Waves as RowingIcon, Footprints, Activity as ActivityIcon } from "lucide-react";
+import Link from "next/link";
 
 const ICONS: Record<string, typeof Bike> = {
   CYCLING: Bike,
@@ -76,9 +77,10 @@ export default async function TrainingPage() {
               const Icon = ICONS[act.activityType] ?? ActivityIcon;
               const pace = formatPace(act.averagePaceInMinutesPerKilometer);
               return (
-                <div
+                <Link
                   key={act.activityId}
-                  className="rounded-xl border border-border bg-surface px-4 py-3 flex items-center gap-4"
+                  href={`/training/${act.activityId}`}
+                  className="rounded-xl border border-border bg-surface px-4 py-3 flex items-center gap-4 hover:border-accent/50 hover:bg-surface-raised transition-colors"
                 >
                   <div className="w-9 h-9 rounded-lg bg-surface-raised flex items-center justify-center text-accent shrink-0">
                     <Icon size={17} />
@@ -99,7 +101,7 @@ export default async function TrainingPage() {
                     </span>
                     <span className="text-muted w-16 text-right">{act.activeKilocalories} kcal</span>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

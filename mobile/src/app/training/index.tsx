@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Bike, Dumbbell, Waves, Footprints, Activity as ActivityIcon } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
@@ -22,6 +22,7 @@ const ICONS: Record<string, typeof Bike> = {
 export default function TrainingScreen() {
   const [data, setData] = useState<TrainingResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const load = useCallback(async () => {
     try {
@@ -79,7 +80,11 @@ export default function TrainingScreen() {
           const Icon = ICONS[act.activityType] ?? ActivityIcon;
           const pace = formatPace(act.averagePaceInMinutesPerKilometer);
           return (
-            <View key={act.activityId} style={styles.activityRow}>
+            <Pressable
+              key={act.activityId}
+              style={styles.activityRow}
+              onPress={() => router.push({ pathname: '/training/[id]', params: { id: String(act.activityId) } })}
+            >
               <View style={styles.iconWrap}>
                 <Icon size={17} color={Colors.accent} />
               </View>
@@ -95,7 +100,7 @@ export default function TrainingScreen() {
                   {act.averageHeartRateInBeatsPerMinute ? ` · Ø ${act.averageHeartRateInBeatsPerMinute} bpm` : ''}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </View>

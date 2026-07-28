@@ -144,6 +144,15 @@ export interface Activity {
   averageSpeedInMetersPerSecond?: number;
   averagePaceInMinutesPerKilometer?: number;
   totalElevationGainInMeters?: number;
+  trainingLoad?: number;
+  avgCadence?: number;
+  intensityFactor?: number;
+  efficiencyFactor?: number;
+  avgPower?: number;
+  normalizedPower?: number;
+  maxPower?: number;
+  hrZones?: { z1: number; z2: number; z3: number; z4: number; z5: number };
+  notes?: string;
 }
 
 export interface ActivitiesCache {
