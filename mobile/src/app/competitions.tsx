@@ -12,18 +12,23 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Plus, Trash2, Trophy, X, Sparkles } from 'lucide-react-native';
+import { Plus, Trash2, Trophy, X, Sparkles, CalendarClock, ClipboardCheck } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { api } from '@/lib/api';
 import type { CompetitionResult } from '@/lib/types';
 
+const emptyPlanForm = { name: '', date: '', location: '', boatClass: '', crew: '', goal: '' };
+const emptyResultForm = { result: '', placement: '', avgHeartRate: '', notes: '' };
+
 export default function CompetitionsScreen() {
   const [competitions, setCompetitions] = useState<CompetitionResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [planModalVisible, setPlanModalVisible] = useState(false);
+  const [resultModalId, setResultModalId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', date: '', location: '', boatClass: '', result: '', placement: '', notes: '' });
+  const [planForm, setPlanForm] = useState(emptyPlanForm);
+  const [resultForm, setResultForm] = useState(emptyResultForm);
 
   const load = useCallback(async () => {
     try {
@@ -39,19 +44,24 @@ export default function CompetitionsScreen() {
     }, [load])
   );
 
-  async function submit() {
-    const created = await api.competitions.create({
-      name: form.name,
-      date: form.date,
-      location: form.location,
-      boatClass: form.boatClass,
-      result: form.result,
-      placement: form.placement ? Number(form.placement) : null,
-      notes: form.notes,
-    });
+  async function submitPlan() {
+    const created = await api.competitions.create({ ...planForm, status: 'planned' });
     setCompetitions((c) => [created, ...c]);
-    setModalVisible(false);
-    setForm({ name: '', date: '', location: '', boatClass: '', result: '', placement: '', notes: '' });
+    setPlanModalVisible(false);
+    setPlanForm(emptyPlanForm);
+  }
+
+  async function submitResult(id: string) {
+    const updated = await api.competitions.update({
+      id,
+      result: resultForm.result,
+      placement: resultForm.placement ? Number(resultForm.placement) : null,
+      avgHeartRate: resultForm.avgHeartRate ? Number(resultForm.avgHeartRate) : null,
+      notes: resultForm.notes,
+    });
+    setCompetitions((c) => c.map((comp) => (comp.id === id ? updated : comp)));
+    setResultModalId(null);
+    setResultForm(emptyResultForm);
   }
 
   async function remove(id: string) {
@@ -79,14 +89,48 @@ export default function CompetitionsScreen() {
     );
   }
 
+  const planned = competitions.filter((c) => c.status === 'planned').sort((a, b) => a.date.localeCompare(b.date));
+  const completed = competitions.filter((c) => c.status === 'completed').sort((a, b) => b.date.localeCompare(a.date));
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}
       >
-        {competitions.length === 0 && <Text style={styles.emptyText}>Noch keine Wettkämpfe erfasst.</Text>}
-        {competitions.map((c) => (
+        <Text style={styles.sectionLabel}>
+          <CalendarClock size={12} color={Colors.muted} /> Anstehend
+        </Text>
+        {planned.length === 0 && <Text style={styles.emptyText}>Keine geplanten Wettkämpfe.</Text>}
+        {planned.map((c) => (
+          <Card key={c.id}>
+            <View style={styles.rowHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                <Trophy size={16} color={Colors.accent} />
+                <View>
+                  <Text style={styles.compTitle}>{c.name}</Text>
+                  <Text style={styles.compMeta}>{c.date} · {c.location} · {c.boatClass}</Text>
+                  {!!c.goal && <Text style={styles.compMeta}>Ziel: {c.goal}</Text>}
+                </View>
+              </View>
+              <Pressable onPress={() => remove(c.id)}>
+                <Trash2 size={16} color={Colors.muted} />
+              </Pressable>
+            </View>
+            <View style={styles.divider} />
+            <Pressable
+              onPress={() => { setResultModalId(c.id); setResultForm(emptyResultForm); }}
+              style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}
+            >
+              <ClipboardCheck size={14} color={Colors.accent} />
+              <Text style={styles.analyzeLink}>Ergebnis eintragen</Text>
+            </Pressable>
+          </Card>
+        ))}
+
+        <Text style={[styles.sectionLabel, { marginTop: 12 }]}>Vergangen</Text>
+        {completed.length === 0 && <Text style={styles.emptyText}>Noch keine abgeschlossenen Wettkämpfe.</Text>}
+        {completed.map((c) => (
           <Card key={c.id}>
             <View style={styles.rowHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
@@ -121,27 +165,45 @@ export default function CompetitionsScreen() {
         ))}
       </ScrollView>
 
-      <Pressable style={styles.fab} onPress={() => setModalVisible(true)}>
+      <Pressable style={styles.fab} onPress={() => setPlanModalVisible(true)}>
         <Plus size={22} color="#000" />
       </Pressable>
 
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+      <Modal visible={planModalVisible} animationType="slide" transparent onRequestClose={() => setPlanModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Wettkampf erfassen</Text>
-              <Pressable onPress={() => setModalVisible(false)}>
+              <Text style={styles.modalTitle}>Wettkampf planen</Text>
+              <Pressable onPress={() => setPlanModalVisible(false)}>
                 <X size={20} color={Colors.muted} />
               </Pressable>
             </View>
-            <TextInput style={styles.input} placeholder="Name" placeholderTextColor={Colors.muted} value={form.name} onChangeText={(t) => setForm({ ...form, name: t })} />
-            <TextInput style={styles.input} placeholder="Datum (YYYY-MM-DD)" placeholderTextColor={Colors.muted} value={form.date} onChangeText={(t) => setForm({ ...form, date: t })} />
-            <TextInput style={styles.input} placeholder="Ort" placeholderTextColor={Colors.muted} value={form.location} onChangeText={(t) => setForm({ ...form, location: t })} />
-            <TextInput style={styles.input} placeholder="Bootsklasse" placeholderTextColor={Colors.muted} value={form.boatClass} onChangeText={(t) => setForm({ ...form, boatClass: t })} />
-            <TextInput style={styles.input} placeholder="Ergebnis (Zeit)" placeholderTextColor={Colors.muted} value={form.result} onChangeText={(t) => setForm({ ...form, result: t })} />
-            <TextInput style={styles.input} placeholder="Platzierung" placeholderTextColor={Colors.muted} keyboardType="numeric" value={form.placement} onChangeText={(t) => setForm({ ...form, placement: t })} />
-            <TextInput style={styles.input} placeholder="Notizen" placeholderTextColor={Colors.muted} value={form.notes} onChangeText={(t) => setForm({ ...form, notes: t })} />
-            <Pressable style={styles.submitButton} onPress={submit}>
+            <TextInput style={styles.input} placeholder="Name" placeholderTextColor={Colors.muted} value={planForm.name} onChangeText={(t) => setPlanForm({ ...planForm, name: t })} />
+            <TextInput style={styles.input} placeholder="Datum (YYYY-MM-DD)" placeholderTextColor={Colors.muted} value={planForm.date} onChangeText={(t) => setPlanForm({ ...planForm, date: t })} />
+            <TextInput style={styles.input} placeholder="Ort" placeholderTextColor={Colors.muted} value={planForm.location} onChangeText={(t) => setPlanForm({ ...planForm, location: t })} />
+            <TextInput style={styles.input} placeholder="Bootsklasse" placeholderTextColor={Colors.muted} value={planForm.boatClass} onChangeText={(t) => setPlanForm({ ...planForm, boatClass: t })} />
+            <TextInput style={styles.input} placeholder="Ziel (z.B. unter 6:50)" placeholderTextColor={Colors.muted} value={planForm.goal} onChangeText={(t) => setPlanForm({ ...planForm, goal: t })} />
+            <Pressable style={styles.submitButton} onPress={submitPlan}>
+              <Text style={styles.submitButtonText}>Speichern</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!resultModalId} animationType="slide" transparent onRequestClose={() => setResultModalId(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Ergebnis eintragen</Text>
+              <Pressable onPress={() => setResultModalId(null)}>
+                <X size={20} color={Colors.muted} />
+              </Pressable>
+            </View>
+            <TextInput style={styles.input} placeholder="Ergebnis (Zeit)" placeholderTextColor={Colors.muted} value={resultForm.result} onChangeText={(t) => setResultForm({ ...resultForm, result: t })} />
+            <TextInput style={styles.input} placeholder="Platzierung" placeholderTextColor={Colors.muted} keyboardType="numeric" value={resultForm.placement} onChangeText={(t) => setResultForm({ ...resultForm, placement: t })} />
+            <TextInput style={styles.input} placeholder="Ø Herzfrequenz" placeholderTextColor={Colors.muted} keyboardType="numeric" value={resultForm.avgHeartRate} onChangeText={(t) => setResultForm({ ...resultForm, avgHeartRate: t })} />
+            <TextInput style={styles.input} placeholder="Notizen" placeholderTextColor={Colors.muted} value={resultForm.notes} onChangeText={(t) => setResultForm({ ...resultForm, notes: t })} />
+            <Pressable style={styles.submitButton} onPress={() => resultModalId && submitResult(resultModalId)}>
               <Text style={styles.submitButtonText}>Speichern</Text>
             </Pressable>
           </View>
@@ -154,7 +216,8 @@ export default function CompetitionsScreen() {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 100 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
-  emptyText: { color: Colors.muted, fontSize: 13, textAlign: 'center', marginTop: 24 },
+  emptyText: { color: Colors.muted, fontSize: 13, marginBottom: 4 },
+  sectionLabel: { fontSize: 12, fontWeight: '600', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   compTitle: { fontSize: 14, fontWeight: '600', color: Colors.foreground },
   compMeta: { fontSize: 12, color: Colors.muted, marginTop: 2 },

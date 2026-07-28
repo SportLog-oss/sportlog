@@ -10,14 +10,18 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const competitions = await getCompetitions();
 
+  const hasResult = !!body.result;
+
   const entry: CompetitionResult = {
     id: `comp-${Date.now()}`,
+    status: body.status ?? (hasResult ? "completed" : "planned"),
     name: body.name,
     date: body.date,
     location: body.location ?? "",
     distanceMeters: body.distanceMeters ?? 2000,
     boatClass: body.boatClass ?? "",
     crew: body.crew ?? "",
+    goal: body.goal ?? "",
     result: body.result ?? "",
     placement: body.placement ?? null,
     splits: body.splits ?? [],
@@ -32,6 +36,21 @@ export async function POST(req: NextRequest) {
   competitions.unshift(entry);
   await saveCompetitions(competitions);
   return NextResponse.json(entry, { status: 201 });
+}
+
+export async function PUT(req: NextRequest) {
+  const body = await req.json();
+  const competitions = await getCompetitions();
+  const idx = competitions.findIndex((c) => c.id === body.id);
+  if (idx === -1) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  competitions[idx] = {
+    ...competitions[idx],
+    ...body,
+    status: body.result ? "completed" : (body.status ?? competitions[idx].status),
+  };
+  await saveCompetitions(competitions);
+  return NextResponse.json(competitions[idx]);
 }
 
 export async function DELETE(req: NextRequest) {

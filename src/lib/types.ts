@@ -197,12 +197,14 @@ export interface CurvesCache {
 
 export type CompetitionResult = {
   id: string;
+  status: "planned" | "completed";
   name: string;
   date: string;
   location: string;
   distanceMeters: number;
   boatClass: string;
   crew: string;
+  goal: string;
   result: string;
   placement: number | null;
   splits: { split: string; time: string }[];

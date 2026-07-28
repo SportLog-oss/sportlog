@@ -32,6 +32,8 @@ export const api = {
         body: JSON.stringify(body),
       }),
     remove: (id: string) => request('/api/competitions', { method: 'DELETE', body: JSON.stringify({ id }) }),
+    update: (body: Partial<import('./types').CompetitionResult> & { id: string }) =>
+      request<import('./types').CompetitionResult>('/api/competitions', { method: 'PUT', body: JSON.stringify(body) }),
     analyze: (id: string) =>
       request<import('./types').CompetitionResult>(`/api/competitions/${id}/analyze`, { method: 'POST' }),
   },
