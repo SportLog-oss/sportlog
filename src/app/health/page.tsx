@@ -4,10 +4,10 @@ import { ChartCard } from "@/components/charts/ChartCard";
 import { Card } from "@/components/ui/Card";
 import { TrendChart } from "@/components/charts/TrendChart";
 
-export default function HealthPage() {
-  const daily = getDailyMetrics();
-  const trends = getTrainingTrends();
-  const injuryRisk = getInjuryRisk();
+export default async function HealthPage() {
+  const daily = await getDailyMetrics();
+  const trends = await getTrainingTrends();
+  const injuryRisk = await getInjuryRisk();
   const rows = daily.rows;
 
   const sleepData = rows.map((r) => ({

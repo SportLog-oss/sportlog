@@ -10,10 +10,10 @@ import {
 import { explainHrv, explainLoad, explainRhr, generateTodayRecommendation, generateWarnings } from "@/lib/insights";
 
 export async function GET() {
-  const daily = getDailyMetrics();
-  const trends = getTrainingTrends();
-  const injuryRisk = getInjuryRisk();
-  const anomalies = getAnomalies();
+  const daily = await getDailyMetrics();
+  const trends = await getTrainingTrends();
+  const injuryRisk = await getInjuryRisk();
+  const anomalies = await getAnomalies();
   const goals = await getGoals();
   const competitions = await getCompetitions();
 

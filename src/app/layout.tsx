@@ -19,12 +19,12 @@ export const metadata: Metadata = {
   description: "Persönlicher KI-gestützter Sport- und Gesundheitsassistent für den Rudersport",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { staleDays } = getCacheFreshness();
+  const { staleDays } = await getCacheFreshness();
   const freshnessLabel =
     staleDays <= 0 ? "Daten: heute aktualisiert" : `Daten: vor ${staleDays} Tag${staleDays === 1 ? "" : "en"} aktualisiert`;
 

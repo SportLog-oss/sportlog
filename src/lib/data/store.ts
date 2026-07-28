@@ -28,48 +28,65 @@ function writeJson(filePath: string, data: unknown) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
 }
 
-// On Vercel the filesystem is read-only at runtime, so user-editable data (goals,
-// competitions) is persisted in Upstash Redis when configured. Locally, without
-// those env vars, it falls back to the JSON files under data/user/ for convenience.
+// On Vercel the filesystem is read-only at runtime, so anything that needs to be
+// updated after deploy — user-editable data (goals, competitions) AND the athlete's
+// real training/health snapshot — is persisted in Upstash Redis when configured.
+// The health snapshot in particular must never live in the (public) git repo, so
+// the daily sync writes straight to Redis via /api/sync instead of committing files.
+// Locally, without those env vars, everything falls back to the JSON files under
+// data/cache/ and data/user/ for convenience.
 const redis =
   process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
     ? new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN })
     : null;
 
-export function getDailyMetrics(): DailyMetricsCache {
-  return readJson(path.join(CACHE_DIR, "daily-metrics.json"));
+async function getCache<T>(redisKey: string, filename: string): Promise<T> {
+  if (redis) {
+    const cached = await redis.get<T>(`cache:${redisKey}`);
+    if (cached) return cached;
+  }
+  return readJson(path.join(CACHE_DIR, filename));
 }
 
-export function getAnalyticsSummary(): AnalyticsSummaryCache {
-  return readJson(path.join(CACHE_DIR, "analytics-summary.json"));
+export async function saveCacheEntry(redisKey: string, data: unknown) {
+  if (!redis) throw new Error("Redis not configured — cannot persist cache entry");
+  await redis.set(`cache:${redisKey}`, data);
 }
 
-export function getTrainingTrends(): TrainingTrendsCache {
-  return readJson(path.join(CACHE_DIR, "training-trends.json"));
+export function getDailyMetrics(): Promise<DailyMetricsCache> {
+  return getCache("daily-metrics", "daily-metrics.json");
 }
 
-export function getInjuryRisk(): InjuryRiskCache {
-  return readJson(path.join(CACHE_DIR, "injury-risk.json"));
+export function getAnalyticsSummary(): Promise<AnalyticsSummaryCache> {
+  return getCache("analytics-summary", "analytics-summary.json");
 }
 
-export function getAnomalies(): AnomaliesCache {
-  return readJson(path.join(CACHE_DIR, "anomalies.json"));
+export function getTrainingTrends(): Promise<TrainingTrendsCache> {
+  return getCache("training-trends", "training-trends.json");
 }
 
-export function getActivities(): ActivitiesCache {
-  return readJson(path.join(CACHE_DIR, "activities.json"));
+export function getInjuryRisk(): Promise<InjuryRiskCache> {
+  return getCache("injury-risk", "injury-risk.json");
 }
 
-export function getPerformanceEstimates(): PerformanceEstimatesCache {
-  return readJson(path.join(CACHE_DIR, "performance-estimates.json"));
+export function getAnomalies(): Promise<AnomaliesCache> {
+  return getCache("anomalies", "anomalies.json");
 }
 
-export function getCurves(): CurvesCache {
-  return readJson(path.join(CACHE_DIR, "curves.json"));
+export function getActivities(): Promise<ActivitiesCache> {
+  return getCache("activities", "activities.json");
 }
 
-export function getCacheFreshness(): { fetchedAt: string; staleDays: number } {
-  const { fetchedAt } = getDailyMetrics();
+export function getPerformanceEstimates(): Promise<PerformanceEstimatesCache> {
+  return getCache("performance-estimates", "performance-estimates.json");
+}
+
+export function getCurves(): Promise<CurvesCache> {
+  return getCache("curves", "curves.json");
+}
+
+export async function getCacheFreshness(): Promise<{ fetchedAt: string; staleDays: number }> {
+  const { fetchedAt } = await getDailyMetrics();
   const staleDays = Math.floor((Date.now() - new Date(fetchedAt).getTime()) / 86_400_000);
   return { fetchedAt, staleDays };
 }

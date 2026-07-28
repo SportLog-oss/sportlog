@@ -21,10 +21,10 @@ import { HeartPulse, Moon, Activity, ShieldAlert, Lightbulb, Trophy, Target } fr
 import Link from "next/link";
 
 export default async function DashboardPage() {
-  const daily = getDailyMetrics();
-  const trends = getTrainingTrends();
-  const injuryRisk = getInjuryRisk();
-  const anomalies = getAnomalies();
+  const daily = await getDailyMetrics();
+  const trends = await getTrainingTrends();
+  const injuryRisk = await getInjuryRisk();
+  const anomalies = await getAnomalies();
   const goals = await getGoals();
   const competitions = await getCompetitions();
 

@@ -15,11 +15,11 @@ const ICONS: Record<string, typeof Bike> = {
   WALKING: Footprints,
 };
 
-export default function TrainingPage() {
-  const { activities } = getActivities();
-  const analytics = getAnalyticsSummary();
-  const perf = getPerformanceEstimates();
-  const curves = getCurves();
+export default async function TrainingPage() {
+  const { activities } = await getActivities();
+  const analytics = await getAnalyticsSummary();
+  const perf = await getPerformanceEstimates();
+  const curves = await getCurves();
 
   return (
     <div className="flex-1 overflow-y-auto">

@@ -3,9 +3,9 @@ import { getDailyMetrics, getInjuryRisk, getTrainingTrends } from "@/lib/data/st
 import { explainInjuryRisk, explainSleep } from "@/lib/insights";
 
 export async function GET() {
-  const daily = getDailyMetrics();
-  const trends = getTrainingTrends();
-  const injuryRisk = getInjuryRisk();
+  const daily = await getDailyMetrics();
+  const trends = await getTrainingTrends();
+  const injuryRisk = await getInjuryRisk();
 
   return NextResponse.json({
     rows: daily.rows,

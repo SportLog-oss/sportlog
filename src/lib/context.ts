@@ -15,13 +15,13 @@ import { getCompetitions, getGoals } from "@/lib/data/store";
  * comfortably in a system prompt.
  */
 export async function buildAthleteContext(): Promise<string> {
-  const daily = getDailyMetrics();
-  const analytics = getAnalyticsSummary();
-  const trends = getTrainingTrends();
-  const injuryRisk = getInjuryRisk();
-  const anomalies = getAnomalies();
-  const activities = getActivities();
-  const perf = getPerformanceEstimates();
+  const daily = await getDailyMetrics();
+  const analytics = await getAnalyticsSummary();
+  const trends = await getTrainingTrends();
+  const injuryRisk = await getInjuryRisk();
+  const anomalies = await getAnomalies();
+  const activities = await getActivities();
+  const perf = await getPerformanceEstimates();
   const goals = await getGoals();
   const competitions = await getCompetitions();
 

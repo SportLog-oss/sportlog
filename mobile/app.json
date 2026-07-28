@@ -47,6 +47,12 @@
         "projectId": "3e1e032e-ad5b-49b5-bf05-358f66ed0dd3"
       }
     },
-    "owner": "red_cat281"
+    "owner": "red_cat281",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3e1e032e-ad5b-49b5-bf05-358f66ed0dd3"
+    }
   }
 }
