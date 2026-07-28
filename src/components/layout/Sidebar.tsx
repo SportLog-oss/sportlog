@@ -11,12 +11,14 @@ import {
   Target,
   MessageCircleHeart,
   Waves,
+  CalendarRange,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/training", label: "Training", icon: Activity },
   { href: "/health", label: "Gesundheit", icon: HeartPulse },
+  { href: "/trainingsplan", label: "Trainingsplan", icon: CalendarRange },
   { href: "/competitions", label: "Wettkämpfe", icon: Trophy },
   { href: "/goals", label: "Ziele", icon: Target },
   { href: "/coach", label: "KI-Coach", icon: MessageCircleHeart },

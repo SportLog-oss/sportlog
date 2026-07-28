@@ -5,12 +5,15 @@ import type {
   ActivitiesCache,
   AnalyticsSummaryCache,
   AnomaliesCache,
+  Benchmark,
   CompetitionResult,
   CurvesCache,
   DailyMetricsCache,
   Goal,
   InjuryRiskCache,
   PerformanceEstimatesCache,
+  PlannedSession,
+  StrengthSession,
   TrainingTrendsCache,
 } from "@/lib/types";
 
@@ -115,4 +118,45 @@ export async function saveCompetitions(competitions: CompetitionResult[]) {
     return;
   }
   writeJson(path.join(USER_DIR, "competitions.json"), competitions);
+}
+
+async function getUserCollection<T>(redisKey: string, filename: string): Promise<T[]> {
+  if (redis) return (await redis.get<T[]>(redisKey)) ?? [];
+  try {
+    return readJson(path.join(USER_DIR, filename));
+  } catch {
+    return [];
+  }
+}
+
+async function saveUserCollection<T>(redisKey: string, filename: string, data: T[]) {
+  if (redis) {
+    await redis.set(redisKey, data);
+    return;
+  }
+  writeJson(path.join(USER_DIR, filename), data);
+}
+
+export function getPlannedSessions(): Promise<PlannedSession[]> {
+  return getUserCollection("planned-sessions", "planned-sessions.json");
+}
+
+export function savePlannedSessions(sessions: PlannedSession[]) {
+  return saveUserCollection("planned-sessions", "planned-sessions.json", sessions);
+}
+
+export function getStrengthSessions(): Promise<StrengthSession[]> {
+  return getUserCollection("strength-sessions", "strength-sessions.json");
+}
+
+export function saveStrengthSessions(sessions: StrengthSession[]) {
+  return saveUserCollection("strength-sessions", "strength-sessions.json", sessions);
+}
+
+export function getBenchmarks(): Promise<Benchmark[]> {
+  return getUserCollection("benchmarks", "benchmarks.json");
+}
+
+export function saveBenchmarks(benchmarks: Benchmark[]) {
+  return saveUserCollection("benchmarks", "benchmarks.json", benchmarks);
 }

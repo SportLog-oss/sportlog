@@ -77,6 +77,53 @@ export interface CompetitionResult {
   createdAt: string;
 }
 
+export interface PlannedSession {
+  id: string;
+  date: string;
+  title: string;
+  sportType: string;
+  notes: string;
+  done: boolean;
+  createdAt: string;
+}
+
+export interface StrengthSet {
+  weightKg: number | null;
+  reps: number | null;
+}
+
+export interface StrengthExerciseLog {
+  name: string;
+  sets: StrengthSet[];
+}
+
+export interface StrengthSession {
+  id: string;
+  date: string;
+  title: string;
+  exercises: StrengthExerciseLog[];
+  notes: string;
+  createdAt: string;
+}
+
+export type BenchmarkKind = 'time' | 'weight' | 'power' | 'distance';
+
+export interface BenchmarkEntry {
+  date: string;
+  value: number;
+  notes: string;
+}
+
+export interface Benchmark {
+  id: string;
+  name: string;
+  kind: BenchmarkKind;
+  unit: string;
+  lowerIsBetter: boolean;
+  entries: BenchmarkEntry[];
+  createdAt: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;

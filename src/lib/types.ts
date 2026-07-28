@@ -229,6 +229,53 @@ export type Goal = {
   createdAt: string;
 };
 
+export type PlannedSession = {
+  id: string;
+  date: string;
+  title: string;
+  sportType: string;
+  notes: string;
+  done: boolean;
+  createdAt: string;
+};
+
+export type StrengthSet = {
+  weightKg: number | null;
+  reps: number | null;
+};
+
+export type StrengthExerciseLog = {
+  name: string;
+  sets: StrengthSet[];
+};
+
+export type StrengthSession = {
+  id: string;
+  date: string;
+  title: string;
+  exercises: StrengthExerciseLog[];
+  notes: string;
+  createdAt: string;
+};
+
+export type BenchmarkKind = "time" | "weight" | "power" | "distance";
+
+export type BenchmarkEntry = {
+  date: string;
+  value: number;
+  notes: string;
+};
+
+export type Benchmark = {
+  id: string;
+  name: string;
+  kind: BenchmarkKind;
+  unit: string;
+  lowerIsBetter: boolean;
+  entries: BenchmarkEntry[];
+  createdAt: string;
+};
+
 export type ChatMessage = {
   role: "user" | "assistant";
   content: string;

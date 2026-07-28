@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LayoutDashboard, Activity, HeartPulse, Trophy, Target, MessageCircleHeart } from 'lucide-react-native';
+import { LayoutDashboard, Activity, HeartPulse, Trophy, Target, MessageCircleHeart, CalendarRange } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
 import { registerPushNotifications } from '@/lib/registerPushNotifications';
 
@@ -40,6 +40,10 @@ export default function RootLayout() {
         <Tabs.Screen
           name="health"
           options={{ title: 'Gesundheit', tabBarIcon: ({ color, size }) => <HeartPulse color={color} size={size} /> }}
+        />
+        <Tabs.Screen
+          name="trainingsplan"
+          options={{ title: 'Plan', tabBarIcon: ({ color, size }) => <CalendarRange color={color} size={size} /> }}
         />
         <Tabs.Screen
           name="competitions"

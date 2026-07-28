@@ -39,6 +39,26 @@ export const api = {
   },
   coach: (messages: import('./types').ChatMessage[]) =>
     request<{ reply: string }>('/api/coach', { method: 'POST', body: JSON.stringify({ messages }) }),
+  plannedSessions: {
+    list: () => request<import('./types').PlannedSession[]>('/api/planned-sessions'),
+    create: (body: Partial<import('./types').PlannedSession>) =>
+      request<import('./types').PlannedSession>('/api/planned-sessions', { method: 'POST', body: JSON.stringify(body) }),
+    remove: (id: string) => request('/api/planned-sessions', { method: 'DELETE', body: JSON.stringify({ id }) }),
+  },
+  strength: {
+    list: () => request<import('./types').StrengthSession[]>('/api/strength'),
+    create: (body: Partial<import('./types').StrengthSession>) =>
+      request<import('./types').StrengthSession>('/api/strength', { method: 'POST', body: JSON.stringify(body) }),
+    remove: (id: string) => request('/api/strength', { method: 'DELETE', body: JSON.stringify({ id }) }),
+  },
+  benchmarks: {
+    list: () => request<import('./types').Benchmark[]>('/api/benchmarks'),
+    create: (body: Partial<import('./types').Benchmark>) =>
+      request<import('./types').Benchmark>('/api/benchmarks', { method: 'POST', body: JSON.stringify(body) }),
+    remove: (id: string) => request('/api/benchmarks', { method: 'DELETE', body: JSON.stringify({ id }) }),
+    addEntry: (id: string, body: { date: string; value: number }) =>
+      request<import('./types').Benchmark>(`/api/benchmarks/${id}/entries`, { method: 'POST', body: JSON.stringify(body) }),
+  },
 };
 
 export { API_BASE_URL };
