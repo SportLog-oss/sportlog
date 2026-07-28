@@ -37,7 +37,7 @@ export default async function DashboardPage() {
 
   const hrvExplanation = explainHrv(rows);
   const rhrExplanation = explainRhr(rows);
-  const loadExplanation = explainLoad(rows);
+  const loadExplanation = explainLoad(rows, injuryRisk);
 
   const chartData = rows.map((r) => ({
     date: r.date,
@@ -65,6 +65,7 @@ export default async function DashboardPage() {
             value={lastWithRecovery?.readinessScoreV2 ?? "–"}
             unit="/ 100"
             icon={Activity}
+            glossaryKey="readinessScore"
             tone={
               (lastWithRecovery?.readinessScoreV2 ?? 50) < 25
                 ? "negative"
@@ -79,6 +80,7 @@ export default async function DashboardPage() {
             value={lastWithRecovery?.recoveryScore ?? "–"}
             unit="/ 100"
             icon={HeartPulse}
+            glossaryKey="recoveryScore"
             tone={
               (lastWithRecovery?.recoveryScore ?? 50) < 25
                 ? "negative"
@@ -92,8 +94,10 @@ export default async function DashboardPage() {
             value={last.hrv ?? trends.recovery.hrv_values.at(-1)?.hrv ?? "–"}
             unit="ms"
             icon={Activity}
+            glossaryKey="hrv"
             tone={trends.recovery.hrv_trend === "declining" ? "warning" : "neutral"}
             hint={`Trend: ${trends.recovery.hrv_trend}`}
+            href="#hrv-chart"
           />
           <StatTile
             label="Ruhepuls"
@@ -102,6 +106,7 @@ export default async function DashboardPage() {
             icon={HeartPulse}
             tone={trends.recovery.rhr_trend === "rising" ? "warning" : "neutral"}
             hint={`Trend: ${trends.recovery.rhr_trend}`}
+            href="#rhr-chart"
           />
           <StatTile
             label="Schlaf"
@@ -109,25 +114,31 @@ export default async function DashboardPage() {
             unit="Score"
             icon={Moon}
             hint={`Ø ${trends.sleep.avg_duration_hours} h`}
+            href="/health#sleep-chart"
           />
           <StatTile
             label="Trainingsbelastung (TSB)"
             value={last.tsb ?? "–"}
             unit="Form"
             icon={Activity}
+            glossaryKey="tsb"
             tone={(last.tsb ?? 0) < -20 ? "negative" : (last.tsb ?? 0) > 15 ? "positive" : "neutral"}
+            href="#tsb-chart"
           />
           <StatTile
             label="Überlastungsrisiko"
             value={injuryRisk.index}
             unit="Index"
             icon={ShieldAlert}
+            glossaryKey="injuryRiskIndex"
             tone={injuryRisk.index >= 30 ? "negative" : injuryRisk.index >= 12 ? "warning" : "positive"}
+            href="/health#injury-risk-chart"
           />
           <StatTile
             label="Aktive Ziele"
             value={goals.length}
             icon={Target}
+            href="/goals"
           />
         </section>
 
@@ -148,31 +159,37 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        <section className="grid md:grid-cols-2 gap-6">
-          <ChartCard
-            title="HRV (14 Tage)"
-            subtitle="Herzfrequenzvariabilität"
-            data={chartData}
-            lines={[{ key: "hrv", color: "var(--accent)", name: "HRV (ms)" }]}
-            explanation={hrvExplanation}
-          />
-          <ChartCard
-            title="Ruhepuls (14 Tage)"
-            data={chartData}
-            lines={[{ key: "restingHr", color: "var(--warning)", name: "Ruhepuls (bpm)" }]}
-            explanation={rhrExplanation}
-          />
+        <section className="grid md:grid-cols-2 gap-6 scroll-mt-6">
+          <div id="hrv-chart">
+            <ChartCard
+              title="HRV (14 Tage)"
+              subtitle="Herzfrequenzvariabilität"
+              data={chartData}
+              lines={[{ key: "hrv", color: "var(--accent)", name: "HRV (ms)" }]}
+              explanation={hrvExplanation}
+            />
+          </div>
+          <div id="rhr-chart">
+            <ChartCard
+              title="Ruhepuls (14 Tage)"
+              data={chartData}
+              lines={[{ key: "restingHr", color: "var(--warning)", name: "Ruhepuls (bpm)" }]}
+              explanation={rhrExplanation}
+            />
+          </div>
         </section>
 
-        <section className="grid md:grid-cols-2 gap-6">
-          <ChartCard
-            title="Form / TSB (14 Tage)"
-            subtitle="Training Stress Balance"
-            data={chartData}
-            lines={[{ key: "tsb", color: "var(--positive)", name: "TSB" }]}
-            explanation={loadExplanation}
-            referenceLine={0}
-          />
+        <section className="grid md:grid-cols-2 gap-6 scroll-mt-6">
+          <div id="tsb-chart">
+            <ChartCard
+              title="Form / TSB (14 Tage)"
+              subtitle="Training Stress Balance"
+              data={chartData}
+              lines={[{ key: "tsb", color: "var(--positive)", name: "TSB" }]}
+              explanation={loadExplanation}
+              referenceLine={0}
+            />
+          </div>
 
           <Card title="Ziele & Wettkämpfe" action={<Link href="/goals" className="text-xs text-accent">Alle Ziele →</Link>}>
             <div className="space-y-4">

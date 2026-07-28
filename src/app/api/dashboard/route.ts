@@ -43,7 +43,7 @@ export async function GET() {
     explanations: {
       hrv: explainHrv(rows),
       rhr: explainRhr(rows),
-      load: explainLoad(rows),
+      load: explainLoad(rows, injuryRisk),
     },
     goals: goals.slice(0, 3),
     competitions: competitions.slice(0, 3),

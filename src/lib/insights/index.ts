@@ -118,32 +118,41 @@ export function explainSleep(rows: DailyMetricRow[]): Explanation {
   return { headline, body, sentiment, recommendation };
 }
 
-export function explainLoad(rows: DailyMetricRow[]): Explanation {
+export function explainLoad(rows: DailyMetricRow[], injuryRisk?: InjuryRiskCache): Explanation {
   const last = rows[rows.length - 1];
   const ctl = last?.ctl ?? 0;
   const atl = last?.atl ?? 0;
   const tsb = last?.tsb ?? 0;
   const rampRate = last?.rampRate ?? 0;
+  const isDetraining =
+    !!injuryRisk && (injuryRisk.contributors.acwr < 0.6 || injuryRisk.drivers.includes("acwr_detrained"));
 
   let sentiment: Sentiment = "neutral";
-  if (tsb > 15) sentiment = "positive";
+  if (tsb > 15 && isDetraining) sentiment = "neutral";
+  else if (tsb > 15) sentiment = "positive";
   else if (tsb < -20) sentiment = "negative";
 
   const headline =
-    tsb > 15
-      ? "Du bist gut erholt und frisch für intensive Reize"
-      : tsb < -20
-        ? "Du trägst aktuell eine hohe Ermüdung mit dir"
-        : "Deine Belastung ist ausgeglichen";
+    tsb > 15 && isDetraining
+      ? "Deine hohe Form kommt von Detraining, nicht von Frische"
+      : tsb > 15
+        ? "Du bist gut erholt und frisch für intensive Reize"
+        : tsb < -20
+          ? "Du trägst aktuell eine hohe Ermüdung mit dir"
+          : "Deine Belastung ist ausgeglichen";
 
-  const body = `Fitness (CTL): ${ctl.toFixed(1)}, Ermüdung (ATL): ${atl.toFixed(1)}, Form (TSB): ${tsb.toFixed(1)}, Rampenrate: ${rampRate.toFixed(1)} CTL/Woche. TSB (Form) ist die Differenz aus Fitness und Ermüdung: stark positive Werte bedeuten Frische, aber bei zu langer Dauer auch Formverlust durch zu wenig Reiz; stark negative Werte bedeuten hohe Ermüdung, die kurzfristig vor Wettkämpfen sinnvoll, dauerhaft aber ein Übertrainingsrisiko ist.`;
+  const body = tsb > 15 && isDetraining
+    ? `Fitness (CTL): ${ctl.toFixed(1)}, Ermüdung (ATL): ${atl.toFixed(1)}, Form (TSB): ${tsb.toFixed(1)}, Rampenrate: ${rampRate.toFixed(1)} CTL/Woche. Ein hoher TSB entsteht normalerweise durch gezieltes Tapering nach harter Belastung – hier kommt er aber daher, dass dein Trainingsumfang zuletzt stark gesunken ist (ACWR ${injuryRisk?.contributors.acwr.toFixed(2)}). Das ist Fitnessverlust, keine aufgebaute Frische.`
+    : `Fitness (CTL): ${ctl.toFixed(1)}, Ermüdung (ATL): ${atl.toFixed(1)}, Form (TSB): ${tsb.toFixed(1)}, Rampenrate: ${rampRate.toFixed(1)} CTL/Woche. TSB (Form) ist die Differenz aus Fitness und Ermüdung: stark positive Werte bedeuten Frische, aber bei zu langer Dauer auch Formverlust durch zu wenig Reiz; stark negative Werte bedeuten hohe Ermüdung, die kurzfristig vor Wettkämpfen sinnvoll, dauerhaft aber ein Übertrainingsrisiko ist.`;
 
   const recommendation =
-    tsb > 15
-      ? "Guter Zeitpunkt für eine intensive Einheit, einen Test oder einen Wettkampf."
-      : tsb < -20
-        ? "Baue einen Regenerationstag oder eine lockere Einheit ein, bevor die Ermüdung weiter steigt."
-        : "Training wie geplant fortsetzen.";
+    tsb > 15 && isDetraining
+      ? "Steig langsam wieder ins Training ein, statt sofort voll intensiv zu starten – das senkt das Verletzungsrisiko nach der Pause."
+      : tsb > 15
+        ? "Guter Zeitpunkt für eine intensive Einheit, einen Test oder einen Wettkampf."
+        : tsb < -20
+          ? "Baue einen Regenerationstag oder eine lockere Einheit ein, bevor die Ermüdung weiter steigt."
+          : "Training wie geplant fortsetzen.";
 
   return { headline, body, sentiment, recommendation };
 }
@@ -249,6 +258,10 @@ export function generateTodayRecommendation(rows: DailyMetricRow[], injuryRisk: 
   }
   if (injuryRisk.index >= 30) {
     return "Das Überlastungsrisiko ist erhöht – reduziere Umfang und Intensität und baue zusätzliche Erholung ein.";
+  }
+  const isDetraining = injuryRisk.contributors.acwr < 0.6 || injuryRisk.drivers.includes("acwr_detrained");
+  if (tsb > 15 && isDetraining) {
+    return "Deine Form (TSB) ist zwar hoch, aber weil du zuletzt deutlich weniger trainiert hast als in den Wochen zuvor – das ist Detraining, keine Frische durch harte Vorbelastung. Steig lieber schrittweise wieder ein, statt sofort voll intensiv zu trainieren, um das Verletzungsrisiko durch den abrupten Belastungssprung nicht zu erhöhen.";
   }
   if (tsb > 15) {
     return "Du bist frisch und gut erholt. Ein intensives Training, ein Test oder ein Wettkampf sind heute gut vertretbar.";

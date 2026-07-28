@@ -1,5 +1,8 @@
 import clsx from "clsx";
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import type { GlossaryKey } from "@/lib/glossary";
 
 export function StatTile({
   label,
@@ -8,6 +11,8 @@ export function StatTile({
   icon: Icon,
   tone = "neutral",
   hint,
+  glossaryKey,
+  href,
 }: {
   label: string;
   value: string | number;
@@ -15,6 +20,8 @@ export function StatTile({
   icon?: LucideIcon;
   tone?: "positive" | "negative" | "warning" | "neutral";
   hint?: string;
+  glossaryKey?: GlossaryKey;
+  href?: string;
 }) {
   const toneClass = {
     positive: "text-positive",
@@ -23,10 +30,18 @@ export function StatTile({
     neutral: "text-foreground",
   }[tone];
 
-  return (
-    <div className="rounded-xl border border-border bg-surface p-4 flex flex-col gap-2 min-w-0">
+  const content = (
+    <div
+      className={clsx(
+        "rounded-xl border border-border bg-surface p-4 flex flex-col gap-2 min-w-0 h-full",
+        href && "transition-colors hover:border-accent/50 hover:bg-surface-raised cursor-pointer"
+      )}
+    >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted leading-tight">{label}</span>
+        <span className="flex items-center gap-1.5 text-xs font-medium text-muted leading-tight">
+          {label}
+          {glossaryKey && <InfoTooltip term={glossaryKey} />}
+        </span>
         {Icon && <Icon size={16} className="text-muted shrink-0" />}
       </div>
       <div className="flex items-baseline gap-1">
@@ -36,4 +51,13 @@ export function StatTile({
       {hint && <span className="text-xs text-muted">{hint}</span>}
     </div>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block h-full">
+        {content}
+      </Link>
+    );
+  }
+  return content;
 }
