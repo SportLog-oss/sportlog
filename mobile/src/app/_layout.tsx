@@ -1,9 +1,17 @@
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LayoutDashboard, Activity, HeartPulse, Trophy, Target, MessageCircleHeart } from 'lucide-react-native';
 import { Colors } from '@/constants/theme';
+import { registerPushNotifications } from '@/lib/registerPushNotifications';
 
 export default function RootLayout() {
+  useEffect(() => {
+    registerPushNotifications().catch(() => {
+      // best-effort — a failed registration just means no push notifications, not a crash
+    });
+  }, []);
+
   return (
     <>
       <StatusBar style="light" />
