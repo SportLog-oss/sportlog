@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Sportlog",
+    "slug": "sportlog",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "sportlog",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0a0e14",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0e14",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0a0e14",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "apiBaseUrl": "https://sportlog-three.vercel.app",
+      "router": {},
+      "eas": {
+        "projectId": "3e1e032e-ad5b-49b5-bf05-358f66ed0dd3"
+      }
+    },
+    "owner": "red_cat281"
+  }
+}
