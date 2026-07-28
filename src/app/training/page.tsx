@@ -6,6 +6,7 @@ import { CurveChart } from "@/components/charts/CurveChart";
 import { activityLabel, formatDate, formatDistance, formatDuration, formatPace } from "@/lib/format";
 import { Bike, Dumbbell, Waves as RowingIcon, Footprints, Activity as ActivityIcon } from "lucide-react";
 import Link from "next/link";
+import { PhotoAnalysis } from "@/components/training/PhotoAnalysis";
 
 const ICONS: Record<string, typeof Bike> = {
   CYCLING: Bike,
@@ -66,6 +67,10 @@ export default async function TrainingPage() {
           <Card title="Pace-Kurve (Lauf)" subtitle="Bestwerte der letzten 90 Tage">
             <CurveChart points={curves.pace.points} color="var(--positive)" unit="s/km" />
           </Card>
+        </section>
+
+        <section className="grid md:grid-cols-2 gap-6">
+          <PhotoAnalysis />
         </section>
 
         <section>

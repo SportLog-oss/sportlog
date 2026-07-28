@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { HrZonesBars } from '@/components/charts/HrZonesBars';
 import { TrendChart } from '@/components/charts/TrendChart';
+import { PhotoAnalysis } from '@/components/training/PhotoAnalysis';
 import { api } from '@/lib/api';
 import { activityLabel, formatDate, formatDistance, formatDuration, formatDurationLabel, formatPace } from '@/lib/format';
 import type { TrainingResponse } from '@/lib/types';
@@ -73,6 +74,8 @@ export default function TrainingScreen() {
           suffix="W"
         />
       </Card>
+
+      <PhotoAnalysis />
 
       <View style={{ gap: 10 }}>
         <Text style={styles.sectionLabel}>Letzte Einheiten</Text>
