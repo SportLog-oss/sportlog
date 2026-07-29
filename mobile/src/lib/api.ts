@@ -56,8 +56,91 @@ export const api = {
     analyze: (id: string) =>
       request<import('./types').CompetitionResult>(`/api/competitions/${id}/analyze`, { method: 'POST' }),
   },
-  coach: (messages: import('./types').ChatMessage[]) =>
-    request<{ reply: string }>('/api/coach', { method: 'POST', body: JSON.stringify({ messages }) }),
+  reminderPreferences: {
+    get: () => request<import('./types').ReminderPreferences>('/api/reminders/preferences'),
+    update: (body: Partial<Pick<import('./types').ReminderPreferences, 'enabledTypes' | 'preferredHour'>>) =>
+      request<import('./types').ReminderPreferences>('/api/reminders/preferences', { method: 'PUT', body: JSON.stringify(body) }),
+  },
+  illnessLog: {
+    list: () => request<import('./types').IllnessLogEntry[]>('/api/health/illness'),
+    create: (body: Partial<import('./types').IllnessLogEntry>) =>
+      request<import('./types').IllnessLogEntry>('/api/health/illness', { method: 'POST', body: JSON.stringify(body) }),
+    remove: (id: string) => request('/api/health/illness', { method: 'DELETE', body: JSON.stringify({ id }) }),
+  },
+  mentalHealth: {
+    list: () => request<import('./types').MentalHealthCheckin[]>('/api/mental-health'),
+    create: (body: Partial<import('./types').MentalHealthCheckin>) =>
+      request<import('./types').MentalHealthCheckin>('/api/mental-health', { method: 'POST', body: JSON.stringify(body) }),
+  },
+  coachSessions: {
+    list: (q?: string) =>
+      request<import('./types').ChatSession[]>(`/api/coach/sessions${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+    create: () => request<import('./types').ChatSession>('/api/coach/sessions', { method: 'POST' }),
+    rename: (id: string, title: string) =>
+      request<import('./types').ChatSession>('/api/coach/sessions', {
+        method: 'PUT',
+        body: JSON.stringify({ id, title }),
+      }),
+    remove: (id: string) => request('/api/coach/sessions', { method: 'DELETE', body: JSON.stringify({ id }) }),
+    messages: (id: string) => request<import('./types').PersistedChatMessage[]>(`/api/coach/sessions/${id}/messages`),
+  },
+  /**
+   * RN's fetch doesn't reliably expose a streamable response.body, so this uses the classic
+   * XMLHttpRequest progressive-responseText pattern to consume the coach's SSE stream.
+   */
+  streamCoach: (
+    chatId: string,
+    message: string,
+    handlers: { onSnapshot: (snapshot: string) => void; onDone: (message: import('./types').PersistedChatMessage) => void; onError: (message: string) => void }
+  ): { cancel: () => void } => {
+    const xhr = new XMLHttpRequest();
+    let lastLength = 0;
+    let buffer = '';
+
+    function processNewText(newText: string) {
+      buffer += newText;
+      let sep: number;
+      while ((sep = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        if (!frame.startsWith('data: ')) continue;
+        try {
+          const json = JSON.parse(frame.slice(6));
+          if (json.snapshot != null) handlers.onSnapshot(json.snapshot);
+          else if (json.done) handlers.onDone(json.message);
+          else if (json.error) handlers.onError(json.error);
+        } catch {
+          // ignore malformed frame fragments
+        }
+      }
+    }
+
+    xhr.open('POST', `${API_BASE_URL}/api/coach`);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    if (cachedPassword) xhr.setRequestHeader('x-app-password', cachedPassword);
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState >= 3 && xhr.responseText.length > lastLength) {
+        const newText = xhr.responseText.slice(lastLength);
+        lastLength = xhr.responseText.length;
+        processNewText(newText);
+      }
+      if (xhr.readyState === 4 && (xhr.status < 200 || xhr.status >= 300)) {
+        handlers.onError(`Anfrage fehlgeschlagen (${xhr.status})`);
+      }
+    };
+    xhr.onerror = () => handlers.onError('Verbindung zum KI-Coach fehlgeschlagen.');
+    xhr.send(JSON.stringify({ chatId, message }));
+
+    return { cancel: () => xhr.abort() };
+  },
+  analyzePhoto: (imageBase64: string, mimeType: string) =>
+    request<{
+      analysis: string;
+      readable: boolean;
+      extracted: { distanceMeters: number | null; durationSeconds: number | null };
+      matchedActivity: { activityId: number; activityName: string; date: string } | null;
+      benchmarkUpdate: { name: string; value: number; isNewBest: boolean } | null;
+    }>('/api/analyze-photo', { method: 'POST', body: JSON.stringify({ imageBase64, mimeType }) }),
   strength: {
     list: () => request<import('./types').StrengthSession[]>('/api/strength'),
     create: (body: Partial<import('./types').StrengthSession>) =>
@@ -101,7 +184,18 @@ export const api = {
         ascentM: number | null;
         descentM: number | null;
       }[];
+      series: import('./types').ActivitySeriesPoint[];
     }>(`/api/training/${activityId}/details`),
+  trainingLog: {
+    get: (activityId: number) => request<import('./types').TrainingLogEntry | null>(`/api/training/${activityId}/log`),
+    save: (activityId: number, body: Partial<import('./types').TrainingLogEntry>) =>
+      request<import('./types').TrainingLogEntry>(`/api/training/${activityId}/log`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+  },
+  activitySummary: (activityId: number) =>
+    request<{ summary: string }>(`/api/training/${activityId}/summary`, { method: 'POST' }),
   activityNotes: {
     list: () => request<{ activityId: number; note: string; updatedAt: string }[]>('/api/activity-notes'),
     upsert: (activityId: number, note: string) =>

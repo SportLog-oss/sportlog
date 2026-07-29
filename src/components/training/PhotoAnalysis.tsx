@@ -2,10 +2,12 @@
 
 import { useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Upload, Loader2, Sparkles, X, CheckCircle2, Trophy } from "lucide-react";
+import { Upload, Loader2, Sparkles, X, CheckCircle2, Trophy, AlertTriangle } from "lucide-react";
 
 type AnalyzeResult = {
   analysis: string;
+  readable: boolean;
+  extracted: { distanceMeters: number | null; durationSeconds: number | null };
   matchedActivity: { activityId: number; activityName: string; date: string } | null;
   benchmarkUpdate: { name: string; value: number; isNewBest: boolean } | null;
 };
@@ -117,6 +119,18 @@ export function PhotoAnalysis() {
 
           {result && (
             <div className="space-y-2">
+              {!result.readable && (
+                <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+                  <AlertTriangle size={15} className="shrink-0" />
+                  Foto konnte nicht ausgewertet werden — siehe Hinweis unten.
+                </div>
+              )}
+              {result.readable && result.extracted.distanceMeters != null && result.extracted.durationSeconds != null && (
+                <div className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent">
+                  <CheckCircle2 size={15} className="shrink-0" />
+                  Erkannt: {result.extracted.distanceMeters} m in {formatClock(result.extracted.durationSeconds)}
+                </div>
+              )}
               {result.matchedActivity && (
                 <div className="flex items-center gap-2 rounded-lg border border-positive/30 bg-positive/10 px-3 py-2 text-sm text-positive">
                   <CheckCircle2 size={15} className="shrink-0" />

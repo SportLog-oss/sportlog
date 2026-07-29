@@ -31,5 +31,27 @@ export async function sendPushToAll(title: string, body: string) {
     body: JSON.stringify(messages),
   });
   const response = await res.json().catch(() => null);
+  await pruneDeadTokens(tokens, response);
   return { tokenCount: tokens.length, response };
+}
+
+// Expo returns one ticket per message, in the same order as the request. A ticket with
+// error "DeviceNotRegistered" means the app was uninstalled or the token is otherwise
+// permanently invalid — remove it so it stops accumulating forever (there's no unregister
+// endpoint, so this cron-triggered send is the only place tokens ever get cleaned up).
+async function pruneDeadTokens(tokens: string[], response: unknown) {
+  if (!redis) return;
+  const tickets = (response as { data?: { status: string; details?: { error?: string } }[] } | null)?.data;
+  if (!Array.isArray(tickets)) return;
+
+  const dead = new Set<string>();
+  tickets.forEach((ticket, i) => {
+    if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
+      dead.add(tokens[i]);
+    }
+  });
+  if (dead.size === 0) return;
+
+  const remaining = tokens.filter((t) => !dead.has(t));
+  await redis.set(TOKENS_KEY, remaining);
 }

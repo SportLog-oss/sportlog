@@ -31,7 +31,7 @@ export function Sidebar({ freshnessLabel }: { freshnessLabel?: string }) {
     <aside className="hidden md:flex md:w-64 md:flex-col border-r border-border bg-surface/60 px-4 py-6 shrink-0">
       <div className="flex items-center gap-2 px-2 mb-8">
         <Waves className="text-accent" size={24} />
-        <span className="text-lg font-semibold tracking-tight">Sportlog</span>
+        <span className="text-lg font-semibold tracking-tight">SportLog</span>
       </div>
       <nav className="flex flex-col gap-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
@@ -54,7 +54,7 @@ export function Sidebar({ freshnessLabel }: { freshnessLabel?: string }) {
         })}
       </nav>
       <div className="mt-auto px-2 text-xs text-muted space-y-1">
-        <div>Rudersport &middot; KI-gestützt</div>
+        <div>Leistungssport &middot; KI-gestützt</div>
         {freshnessLabel && <div className="text-muted/70">{freshnessLabel}</div>}
       </div>
     </aside>

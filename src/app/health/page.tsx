@@ -15,6 +15,7 @@ import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { ExplanationPanel } from "@/components/ui/ExplanationPanel";
 import { MetricGauge } from "@/components/ui/MetricGauge";
 import { SleepDetailSection } from "@/components/health/SleepDetailSection";
+import { HealthTabs } from "@/components/health/HealthTabs";
 import { formatDate, readinessVerdictLabel } from "@/lib/format";
 import { AlertTriangle, TrendingDown, TrendingUp } from "lucide-react";
 
@@ -66,7 +67,10 @@ export default async function HealthPage() {
         <p className="text-sm text-muted mt-0.5">Vertiefte Regenerationsdaten — mit Basiswert-Vergleich und Frühwarnsignalen.</p>
       </header>
 
-      <div className="p-8 space-y-6">
+      <div className="p-8">
+        <HealthTabs
+          overview={
+            <div className="space-y-6">
         <Card title="Trainingsbereitschaft" subtitle="Kombiniert HFV, Ruhepuls, Schlaf und Belastung">
           <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
             <div className="shrink-0">
@@ -240,6 +244,9 @@ export default async function HealthPage() {
             })}
           </div>
         </section>
+            </div>
+          }
+        />
       </div>
     </div>
   );

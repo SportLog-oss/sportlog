@@ -7,13 +7,19 @@ import type {
   AnalyticsSummaryCache,
   AnomaliesCache,
   Benchmark,
+  ChatSession,
   CompetitionResult,
   CurvesCache,
   DailyMetricsCache,
   Goal,
+  IllnessLogEntry,
   InjuryRiskCache,
+  MentalHealthCheckin,
   PerformanceEstimatesCache,
+  PersistedChatMessage,
+  ReminderPreferences,
   StrengthSession,
+  TrainingLogEntry,
   TrainingTrendsCache,
 } from "@/lib/types";
 
@@ -159,4 +165,79 @@ export function getActivityNotes(): Promise<ActivityNote[]> {
 
 export function saveActivityNotes(notes: ActivityNote[]) {
   return saveUserCollection("activity-notes", "activity-notes.json", notes);
+}
+
+export function getIllnessLog(): Promise<IllnessLogEntry[]> {
+  return getUserCollection("illness-log", "illness-log.json");
+}
+
+export function saveIllnessLog(entries: IllnessLogEntry[]) {
+  return saveUserCollection("illness-log", "illness-log.json", entries);
+}
+
+export function getTrainingLogEntries(): Promise<TrainingLogEntry[]> {
+  return getUserCollection("training-log-entries", "training-log-entries.json");
+}
+
+export function saveTrainingLogEntries(entries: TrainingLogEntry[]) {
+  return saveUserCollection("training-log-entries", "training-log-entries.json", entries);
+}
+
+export function getMentalHealthCheckins(): Promise<MentalHealthCheckin[]> {
+  return getUserCollection("mental-health-checkins", "mental-health-checkins.json");
+}
+
+export function saveMentalHealthCheckins(checkins: MentalHealthCheckin[]) {
+  return saveUserCollection("mental-health-checkins", "mental-health-checkins.json", checkins);
+}
+
+export function getChatSessions(): Promise<ChatSession[]> {
+  return getUserCollection("chat-sessions", "chat-sessions.json");
+}
+
+export function saveChatSessions(sessions: ChatSession[]) {
+  return saveUserCollection("chat-sessions", "chat-sessions.json", sessions);
+}
+
+export function getChatMessages(chatId: string): Promise<PersistedChatMessage[]> {
+  return getUserCollection(`chat-messages:${chatId}`, `chat-messages-${chatId}.json`);
+}
+
+export function saveChatMessages(chatId: string, messages: PersistedChatMessage[]) {
+  return saveUserCollection(`chat-messages:${chatId}`, `chat-messages-${chatId}.json`, messages);
+}
+
+export async function deleteChatMessages(chatId: string) {
+  if (redis) {
+    await redis.del(`chat-messages:${chatId}`);
+    return;
+  }
+  try {
+    fs.unlinkSync(path.join(USER_DIR, `chat-messages-${chatId}.json`));
+  } catch {
+    // nothing to delete locally
+  }
+}
+
+const DEFAULT_REMINDER_PREFERENCES: ReminderPreferences = {
+  enabledTypes: ["log-training", "update-illness", "log-mental-health", "daily-checkin"],
+  preferredHour: 19,
+  lastSent: {},
+};
+
+export async function getReminderPreferences(): Promise<ReminderPreferences> {
+  if (redis) return (await redis.get<ReminderPreferences>("reminder-preferences")) ?? DEFAULT_REMINDER_PREFERENCES;
+  try {
+    return readJson(path.join(USER_DIR, "reminder-preferences.json"));
+  } catch {
+    return DEFAULT_REMINDER_PREFERENCES;
+  }
+}
+
+export async function saveReminderPreferences(prefs: ReminderPreferences) {
+  if (redis) {
+    await redis.set("reminder-preferences", prefs);
+    return;
+  }
+  writeJson(path.join(USER_DIR, "reminder-preferences.json"), prefs);
 }

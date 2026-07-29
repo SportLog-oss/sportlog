@@ -6,6 +6,13 @@
       "runtimeExecutable": "D:\\Sportlog\\scripts\\dev.cmd",
       "runtimeArgs": [],
       "port": 3000
+    },
+    {
+      "name": "sportlog-mobile-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "web"],
+      "cwd": "D:\\Sportlog\\mobile",
+      "port": 8081
     }
   ]
 }

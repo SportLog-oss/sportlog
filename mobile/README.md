@@ -1,4 +1,4 @@
-Sportlog Mobile — Expo/React Native App (iPhone)
+SportLog Mobile — Expo/React Native App (iPhone)
 
 ## Setup
 

@@ -1,13 +1,10 @@
 import { getActivities } from "@/lib/data/store";
 import { Card } from "@/components/ui/Card";
-import { ActivityHrZones } from "@/components/charts/ActivityHrZones";
-import { StrengthLogSection } from "@/components/training/StrengthLogSection";
-import { NotesSection } from "@/components/training/NotesSection";
-import { ActivityDetailsSection } from "@/components/training/ActivityDetailsSection";
+import { TrainingDetailTabs } from "@/components/training/TrainingDetailTabs";
 import { activityLabel, formatActivityPace, formatDate, formatDistance, formatDuration } from "@/lib/format";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Flame, Gauge, HeartPulse, TrendingUp, Zap } from "lucide-react";
+import { ArrowLeft, Flame, Gauge, HeartPulse, TrendingUp } from "lucide-react";
 
 export default async function ActivityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -66,54 +63,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
           </Card>
         </section>
 
-        {activity.hrZones && (
-          <Card title="Herzfrequenz-Zonen">
-            <ActivityHrZones zones={activity.hrZones} />
-          </Card>
-        )}
-
-        {(activity.intensityFactor || activity.efficiencyFactor || activity.avgPower) && (
-          <Card title="Leistungskennzahlen">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              {activity.avgPower !== undefined && (
-                <div>
-                  <span className="text-xs text-muted flex items-center gap-1"><Zap size={12} /> Ø Leistung</span>
-                  <span className="font-medium">{activity.avgPower} W</span>
-                </div>
-              )}
-              {activity.normalizedPower !== undefined && (
-                <div>
-                  <span className="text-xs text-muted">Normalisierte Leistung</span>
-                  <span className="font-medium block">{activity.normalizedPower} W</span>
-                </div>
-              )}
-              {activity.intensityFactor !== undefined && (
-                <div>
-                  <span className="text-xs text-muted">Intensitätsfaktor</span>
-                  <span className="font-medium block">{activity.intensityFactor.toFixed(2)}</span>
-                </div>
-              )}
-              {activity.efficiencyFactor !== undefined && (
-                <div>
-                  <span className="text-xs text-muted">Effizienzfaktor</span>
-                  <span className="font-medium block">{activity.efficiencyFactor.toFixed(2)}</span>
-                </div>
-              )}
-            </div>
-          </Card>
-        )}
-
-        <ActivityDetailsSection activityId={activity.activityId} />
-
-        {activity.activityType === "STRENGTH_TRAINING" && (
-          <StrengthLogSection
-            activityId={activity.activityId}
-            date={new Date(activity.startTimeInSeconds * 1000).toISOString().slice(0, 10)}
-            defaultTitle={activity.activityName}
-          />
-        )}
-
-        <NotesSection activityId={activity.activityId} />
+        <TrainingDetailTabs activity={activity} />
       </div>
     </div>
   );

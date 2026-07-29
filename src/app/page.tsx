@@ -12,6 +12,7 @@ import { WarningBanner } from "@/components/ui/WarningBanner";
 import { Card } from "@/components/ui/Card";
 import { MetricGauge } from "@/components/ui/MetricGauge";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { ReminderSettingsCard } from "@/components/ReminderSettingsCard";
 import { formatDate } from "@/lib/format";
 import { Lightbulb, Trophy } from "lucide-react";
 import Link from "next/link";
@@ -137,6 +138,8 @@ export default async function DashboardPage() {
             </div>
           </div>
         </Card>
+
+        <ReminderSettingsCard />
       </div>
     </div>
   );

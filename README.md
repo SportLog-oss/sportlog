@@ -1,4 +1,4 @@
-Sportlog — ein persönlicher KI-gestützter Sport- und Gesundheitsassistent für den Rudersport. Basiert auf [Next.js](https://nextjs.org).
+SportLog — ein persönlicher KI-gestützter Sport- und Gesundheitsassistent für Leistungssportler. Basiert auf [Next.js](https://nextjs.org).
 
 ## Setup
 

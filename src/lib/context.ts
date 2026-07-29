@@ -2,9 +2,14 @@ import {
   getActivities,
   getAnalyticsSummary,
   getAnomalies,
+  getBenchmarks,
   getDailyMetrics,
+  getIllnessLog,
   getInjuryRisk,
+  getMentalHealthCheckins,
   getPerformanceEstimates,
+  getStrengthSessions,
+  getTrainingLogEntries,
   getTrainingTrends,
 } from "@/lib/data/store";
 import { getCompetitions, getGoals } from "@/lib/data/store";
@@ -15,15 +20,39 @@ import { getCompetitions, getGoals } from "@/lib/data/store";
  * comfortably in a system prompt.
  */
 export async function buildAthleteContext(): Promise<string> {
-  const daily = await getDailyMetrics();
-  const analytics = await getAnalyticsSummary();
-  const trends = await getTrainingTrends();
-  const injuryRisk = await getInjuryRisk();
-  const anomalies = await getAnomalies();
-  const activities = await getActivities();
-  const perf = await getPerformanceEstimates();
-  const goals = await getGoals();
-  const competitions = await getCompetitions();
+  // All independent reads — parallelize instead of awaiting one at a time. This runs before
+  // every coach turn, so serial round-trips here directly add to response latency.
+  const [
+    daily,
+    analytics,
+    trends,
+    injuryRisk,
+    anomalies,
+    activities,
+    perf,
+    goals,
+    competitions,
+    illnessLog,
+    mentalHealthCheckins,
+    strengthSessions,
+    benchmarks,
+    trainingLogEntries,
+  ] = await Promise.all([
+    getDailyMetrics(),
+    getAnalyticsSummary(),
+    getTrainingTrends(),
+    getInjuryRisk(),
+    getAnomalies(),
+    getActivities(),
+    getPerformanceEstimates(),
+    getGoals(),
+    getCompetitions(),
+    getIllnessLog(),
+    getMentalHealthCheckins(),
+    getStrengthSessions(),
+    getBenchmarks(),
+    getTrainingLogEntries(),
+  ]);
 
   const last = daily.rows[daily.rows.length - 1];
   const last7 = daily.rows.slice(-7);
@@ -110,13 +139,84 @@ export async function buildAthleteContext(): Promise<string> {
       lines.push(`${c.date} ${c.name} (${c.boatClass}): Ergebnis ${c.result}, Platz ${c.placement ?? "–"}.`);
     }
   }
+  lines.push("");
+
+  lines.push("== Krankheiten/Verletzungen ==");
+  const activeIllness = illnessLog.filter((i) => !i.endDate);
+  const recentIllness = illnessLog.filter((i) => i.endDate).slice(-3);
+  if (activeIllness.length === 0 && recentIllness.length === 0) {
+    lines.push("Keine Krankheiten/Verletzungen erfasst.");
+  } else {
+    for (const i of activeIllness) {
+      lines.push(
+        `AKTIV seit ${i.startDate}: ${i.symptoms.join(", ") || "keine Symptome angegeben"}. Trainingspause: ${i.trainingPausedFrom ?? "–"} bis ${i.trainingPausedUntil ?? "offen"}. Notizen: ${i.notes || "–"}.`
+      );
+    }
+    for (const i of recentIllness) {
+      lines.push(`Abgeschlossen ${i.startDate} bis ${i.endDate}: ${i.symptoms.join(", ") || "–"}, Rückkehr ins Training: ${i.returnedToTrainingOn ?? "unbekannt"}.`);
+    }
+  }
+  lines.push("");
+
+  lines.push("== Trainingsprotokoll (Schmerzen/Muskelkater/RPE, letzte 5 Einträge) ==");
+  if (trainingLogEntries.length === 0) {
+    lines.push("Noch keine Einträge.");
+  } else {
+    for (const t of trainingLogEntries.slice(-5)) {
+      const painStr = t.pain.length > 0 ? t.pain.map((p) => `${p.bodyPart} ${p.intensity}/10`).join(", ") : "keine Schmerzen";
+      lines.push(
+        `${t.date}: Schmerzen: ${painStr}${t.injury ? " (Verletzung markiert!)" : ""}, Muskelkater ${t.soreness ?? "–"}/10, RPE ${t.rpe ?? "–"}/10. ${t.notes || ""}`.trim()
+      );
+    }
+  }
+  lines.push("");
+
+  lines.push("== Mentale Gesundheit (letzte 5 Check-ins) ==");
+  if (mentalHealthCheckins.length === 0) {
+    lines.push("Noch keine Check-ins erfasst.");
+  } else {
+    for (const m of mentalHealthCheckins.slice(-5)) {
+      lines.push(
+        `${m.timestamp.slice(0, 10)} (${m.type}): Valenz ${m.valence.toFixed(2)} (-1 sehr unangenehm .. 1 sehr angenehm), ${m.emotionTags.join(", ") || "keine Tags"}.`
+      );
+    }
+  }
+  lines.push("");
+
+  lines.push("== Krafttraining (letzte 5 Einheiten) ==");
+  if (strengthSessions.length === 0) {
+    lines.push("Noch keine Krafttrainings-Einheiten erfasst.");
+  } else {
+    for (const s of strengthSessions.slice(-5)) {
+      const exStr = s.exercises.map((e) => `${e.name} (${e.sets.length} Sätze)`).join(", ");
+      lines.push(`${s.date} ${s.title}: ${exStr || "keine Übungen erfasst"}.`);
+    }
+  }
+  lines.push("");
+
+  lines.push("== Benchmarks/Bestwerte ==");
+  if (benchmarks.length === 0) {
+    lines.push("Keine Benchmarks erfasst.");
+  } else {
+    for (const b of benchmarks) {
+      const best = b.entries.length > 0
+        ? (b.lowerIsBetter ? Math.min(...b.entries.map((e) => e.value)) : Math.max(...b.entries.map((e) => e.value)))
+        : null;
+      lines.push(`${b.name}: Bestwert ${best ?? "–"} ${b.unit}.`);
+    }
+  }
 
   return lines.join("\n");
 }
 
-export const COACH_SYSTEM_PROMPT = `Du bist ein persönlicher KI-Coach für einen Rudersportler: eine Kombination aus Trainer, Sportwissenschaftler und Gesundheitsanalyst, integriert in dessen Trainings- und Gesundheits-App.
+export const COACH_SYSTEM_PROMPT = `Du bist der persönliche KI-Coach von SportLog für einen Leistungssportler: eine Kombination aus Trainer, Sportwissenschaftler und Gesundheitsanalyst, integriert in dessen Trainings- und Gesundheits-App.
 
-Du hast Zugriff auf einen aktuellen Datenschnappschuss des Athleten (Trainingsdaten, HFV, Ruhepuls, Schlaf, Belastung, Ziele, Wettkämpfe). Nutze diese Daten, um konkrete, verständliche und wissenschaftlich fundierte Antworten zu geben.
+Du hast Zugriff auf einen aktuellen Datenschnappschuss des Athleten: Trainingsdaten, HFV, Ruhepuls, Schlaf, Belastung (CTL/ATL/TSB, ACWR), Verletzungsrisiko, Ziele, Wettkämpfe, Krafttraining, Benchmarks/Bestwerte, ein Trainingsprotokoll (Schmerzen/Muskelkater/RPE pro Einheit), ein Krankheits-/Verletzungsprotokoll und Check-ins zur mentalen Gesundheit. Nutze diese Daten, um konkrete, verständliche und wissenschaftlich fundierte Antworten zu geben.
+
+Wichtig – der Nutzer betreibt Leistungssport:
+- Empfiehl NIEMALS pauschal "weniger trainieren" oder einen Trainingsabbruch. Bewerte Belastung, Regeneration, Wettkampfphasen, Trainingslager und Krankheiten differenziert und schlage konkrete, angepasste Maßnahmen vor (z.B. Intensität statt Umfang reduzieren, gezielte Regenerationstage, Belastungssteuerung um einen Wettkampf herum).
+- Berücksichtige aktive Krankheiten/Verletzungen aus dem Protokoll explizit, bevor du Trainingsempfehlungen gibst.
+- Wenn HFV/Ruhepuls-Anomalien vorliegen UND eine Krankheit bereits im Protokoll erfasst ist, wiederhole nicht die generische "könnte auf eine beginnende Krankheit hindeuten"-Warnung, sondern beziehe dich auf die bekannte Krankheit.
 
 Regeln:
 - Antworte auf Deutsch, klar und konkret, ohne unnötigen Fachjargon (wenn du Fachbegriffe nutzt, erkläre sie kurz).

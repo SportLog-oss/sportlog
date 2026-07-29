@@ -116,9 +116,85 @@ export interface Benchmark {
   createdAt: string;
 }
 
-export interface ChatMessage {
+export interface IllnessLogEntry {
+  id: string;
+  startDate: string;
+  endDate: string | null;
+  symptoms: string[];
+  medications: string[];
+  doctorVisits: boolean;
+  trainingPausedFrom: string | null;
+  trainingPausedUntil: string | null;
+  returnedToTrainingOn: string | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrainingLogEntry {
+  id: string;
+  activityId: number;
+  date: string;
+  pain: { bodyPart: string; intensity: number }[];
+  injury: boolean;
+  soreness: number | null;
+  rpe: number | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MentalHealthCheckinType = 'emotion' | 'mood';
+
+export interface MentalHealthCheckin {
+  id: string;
+  timestamp: string;
+  type: MentalHealthCheckinType;
+  /** -1 (sehr unangenehm) .. 1 (sehr angenehm) */
+  valence: number;
+  emotionTags: string[];
+  influenceTags: string[];
+  note: string;
+  createdAt: string;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersistedChatMessage {
+  id: string;
+  chatId: string;
   role: 'user' | 'assistant';
   content: string;
+  createdAt: string;
+}
+
+export interface ActivitySeriesPoint {
+  /** Seconds elapsed since activity start */
+  t: number;
+  heartRate: number | null;
+  speedKmh: number | null;
+  altitudeM: number | null;
+  cadence: number | null;
+  power: number | null;
+  distanceKm: number | null;
+}
+
+// "Training protokollieren" and "Schmerzen erfassen" (TASKS.md #9) share one reminder type
+// because both live in the same Trainingsprotokoll form (see TrainingLogSection) — there's no
+// separate "pain only" entry point, so a distinct reminder type would just duplicate this one.
+export type ReminderType = 'log-training' | 'update-illness' | 'log-mental-health' | 'daily-checkin';
+
+export interface ReminderPreferences {
+  enabledTypes: ReminderType[];
+  /** UTC hour (0-23) at which the daily reminder cron may send a push */
+  preferredHour: number;
+  /** Date (YYYY-MM-DD) each reminder type was last sent, to avoid duplicate pushes per day */
+  lastSent: Partial<Record<ReminderType, string>>;
 }
 
 export interface Activity {

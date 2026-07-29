@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOpenRouterClient, COACH_MODEL, friendlyOpenRouterError } from "@/lib/openrouter";
+import {
+  getOpenRouterClient,
+  PHOTO_ANALYSIS_MODEL,
+  PHOTO_ANALYSIS_MODEL_FALLBACK,
+  createChatCompletionWithFallback,
+  friendlyOpenRouterError,
+} from "@/lib/openrouter";
 import { getActivities, getActivityNotes, saveActivityNotes, getBenchmarks, saveBenchmarks } from "@/lib/data/store";
 import { stripMarkdown } from "@/lib/textFormat";
 
-const ANALYSIS_PROMPT = `Du bist ein Rudersport-Coach und analysierst ein Foto eines Ergometer-Displays (Concept2 o.ä.) oder eines handschriftlichen/digitalen Trainingsprotokolls mit Ergo-Zeiten oder Intervallen.
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // ~8MB base64 payload guard
+
+const ANALYSIS_PROMPT = `Du bist ein Coach für Leistungssportler und analysierst ein Foto eines Ergometer-Displays (Concept2 o.ä.), eines GPS-Uhr-Displays oder eines handschriftlichen/digitalen Trainingsprotokolls mit Zeiten, Distanzen oder Intervallen.
 
 Extrahiere so genau wie möglich:
 - Gesamtdistanz und/oder Gesamtzeit
@@ -15,12 +23,35 @@ Danach kommentiere kurz auf Deutsch:
 - Gab es auffällige Einbrüche oder Steigerungen?
 - Eine kurze Einschätzung der Leistung, wenn erkennbar (ohne Übertreibung, nur basierend auf dem Sichtbaren)
 
-Falls das Bild unleserlich ist oder keine Ergo-Daten zeigt, sage das ehrlich statt Werte zu erfinden. Antworte in normalem Fließtext ohne jegliche Markdown-Formatierung (keine Sternchen für Fett/Kursiv, keine Tabellen, keine Überschriften).
+Antworte AUSSCHLIESSLICH mit einem einzigen JSON-Objekt (kein Markdown, kein Fließtext davor oder danach) in genau dieser Form:
+{
+  "readable": <true wenn das Bild auswertbare Trainingsdaten zeigt, sonst false>,
+  "analysisText": "<dein Kommentar in normalem Fließtext ohne Markdown-Formatierung; falls readable=false, erkläre hier kurz und ehrlich warum (z.B. unscharf, kein Ergo-Display erkennbar) statt Werte zu erfinden>",
+  "distanceMeters": <Zahl oder null, nur wenn eine klar erkennbare GESAMTdistanz sichtbar ist>,
+  "durationSeconds": <Zahl oder null, nur wenn eine klar erkennbare GESAMTzeit sichtbar ist>
+}`;
 
-Gib GANZ AM ENDE deiner Antwort zusätzlich genau einen JSON-Block in dieser Form zurück (nur wenn eine klar erkennbare GESAMTdistanz und GESAMTzeit sichtbar sind, sonst beide Werte als null):
-\`\`\`json
-{"distanceMeters": <Zahl oder null>, "durationSeconds": <Zahl oder null>}
-\`\`\``;
+interface PhotoAnalysisResult {
+  readable: boolean;
+  analysisText: string;
+  distanceMeters: number | null;
+  durationSeconds: number | null;
+}
+
+function parseAnalysisResult(raw: string): PhotoAnalysisResult | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.analysisText !== "string") return null;
+    return {
+      readable: typeof parsed.readable === "boolean" ? parsed.readable : true,
+      analysisText: parsed.analysisText,
+      distanceMeters: typeof parsed.distanceMeters === "number" ? parsed.distanceMeters : null,
+      durationSeconds: typeof parsed.durationSeconds === "number" ? parsed.durationSeconds : null,
+    };
+  } catch {
+    return null;
+  }
+}
 
 const BENCHMARK_PRESETS: { name: string; distanceMeters: number }[] = [
   { name: "350m Sprint", distanceMeters: 350 },
@@ -32,27 +63,12 @@ const BENCHMARK_PRESETS: { name: string; distanceMeters: number }[] = [
 
 const ROWING_TYPES = ["ROWING_V2", "INDOOR_ROWING"];
 
-function extractJsonBlock(text: string): { distanceMeters: number | null; durationSeconds: number | null } | null {
-  const match = text.match(/```json\s*([\s\S]*?)\s*```/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[1]);
-    return {
-      distanceMeters: typeof parsed.distanceMeters === "number" ? parsed.distanceMeters : null,
-      durationSeconds: typeof parsed.durationSeconds === "number" ? parsed.durationSeconds : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function stripJsonBlock(text: string): string {
-  return text.replace(/```json\s*[\s\S]*?\s*```/, "").trim();
-}
-
 export async function POST(req: NextRequest) {
   const { imageBase64, mimeType } = await req.json();
   if (!imageBase64) return NextResponse.json({ error: "imageBase64 required" }, { status: 400 });
+  if (imageBase64.length > MAX_IMAGE_BYTES) {
+    return NextResponse.json({ error: "Foto ist zu groß (max. ~6MB). Bitte ein kleineres Bild wählen." }, { status: 413 });
+  }
 
   const openrouter = getOpenRouterClient();
   if (!openrouter) {
@@ -63,28 +79,45 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const response = await openrouter.chat.completions.create({
-      model: COACH_MODEL,
-      max_tokens: 1200,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: ANALYSIS_PROMPT },
-            { type: "image_url", image_url: { url: `data:${mimeType ?? "image/jpeg"};base64,${imageBase64}` } },
-          ],
-        },
-      ],
-    });
+    const response = await createChatCompletionWithFallback(
+      openrouter,
+      {
+        max_tokens: 1200,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: ANALYSIS_PROMPT },
+              { type: "image_url", image_url: { url: `data:${mimeType ?? "image/jpeg"};base64,${imageBase64}` } },
+            ],
+          },
+        ],
+      },
+      { primary: PHOTO_ANALYSIS_MODEL, fallback: PHOTO_ANALYSIS_MODEL_FALLBACK }
+    );
 
-    const rawAnalysis = response.choices[0]?.message?.content ?? "";
-    const extracted = extractJsonBlock(rawAnalysis);
-    const analysis = stripMarkdown(stripJsonBlock(rawAnalysis));
+    const raw = response.choices[0]?.message?.content ?? "";
+    const parsed = parseAnalysisResult(raw);
+
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "Die KI-Antwort konnte nicht ausgewertet werden. Bitte erneut versuchen." },
+        { status: 502 }
+      );
+    }
+
+    const extracted = { distanceMeters: parsed.distanceMeters, durationSeconds: parsed.durationSeconds };
+    const analysis = stripMarkdown(parsed.analysisText);
 
     let matchedActivity: { activityId: number; activityName: string; date: string } | null = null;
     let benchmarkUpdate: { name: string; value: number; isNewBest: boolean } | null = null;
 
-    if (extracted?.distanceMeters && extracted?.durationSeconds) {
+    if (!parsed.readable) {
+      return NextResponse.json({ analysis, extracted, matchedActivity, benchmarkUpdate, readable: false });
+    }
+
+    if (extracted.distanceMeters && extracted.durationSeconds) {
       const { distanceMeters, durationSeconds } = extracted;
 
       // Try to attach the analysis as a note on a matching recent rowing activity.
@@ -161,7 +194,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ analysis, extracted, matchedActivity, benchmarkUpdate });
+    return NextResponse.json({ analysis, extracted, matchedActivity, benchmarkUpdate, readable: true });
   } catch (error) {
     const { message, status } = friendlyOpenRouterError(error);
     return NextResponse.json({ error: message }, { status });

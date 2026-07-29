@@ -6,6 +6,7 @@ import { Colors } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { WarningBanner } from '@/components/ui/WarningBanner';
 import { MetricGauge } from '@/components/ui/MetricGauge';
+import { ReminderSettingsCard } from '@/components/ReminderSettingsCard';
 import { api } from '@/lib/api';
 import { useForceRefresh } from '@/lib/useForceRefresh';
 import { formatDate, recoveryLabel, sleepPerformanceLabel, strainLabel } from '@/lib/format';
@@ -128,6 +129,8 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Card>
+
+      <ReminderSettingsCard />
     </ScrollView>
   );
 }

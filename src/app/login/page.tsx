@@ -37,7 +37,7 @@ export default function LoginPage() {
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-border bg-surface p-8 space-y-5">
         <div className="flex items-center gap-2 justify-center mb-2">
           <Waves className="text-accent" size={26} />
-          <span className="text-xl font-semibold">Sportlog</span>
+          <span className="text-xl font-semibold">SportLog</span>
         </div>
         <p className="text-sm text-muted text-center">Privater Zugang — bitte Passwort eingeben</p>
 

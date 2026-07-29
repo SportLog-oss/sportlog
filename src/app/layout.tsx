@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sportlog — KI-Rudercoach",
-  description: "Persönlicher KI-gestützter Sport- und Gesundheitsassistent für den Rudersport",
+  title: "SportLog — KI-Leistungscoach",
+  description: "Persönlicher KI-gestützter Sport- und Gesundheitsassistent für Leistungssportler",
 };
 
 export default async function RootLayout({

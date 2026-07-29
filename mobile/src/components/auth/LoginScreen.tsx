@@ -32,7 +32,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.card}>
-        <Text style={styles.title}>Sportlog</Text>
+        <Text style={styles.title}>SportLog</Text>
         <Text style={styles.subtitle}>Privater Zugang — bitte Passwort eingeben</Text>
         <TextInput
           style={styles.input}
