@@ -13,6 +13,13 @@
       "runtimeArgs": ["run", "web"],
       "cwd": "D:\\Sportlog\\mobile",
       "port": 8081
+    },
+    {
+      "name": "sportlog-mobile",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start"],
+      "cwd": "D:\\Sportlog\\mobile",
+      "port": 8081
     }
   ]
 }
