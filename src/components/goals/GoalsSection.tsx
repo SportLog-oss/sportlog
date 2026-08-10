@@ -47,7 +47,7 @@ function goalToForm(goal: Goal) {
   };
 }
 
-export default function GoalsPage() {
+export function GoalsSection() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -167,106 +167,100 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <header className="border-b border-border px-8 py-5 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Ziele</h1>
-          <p className="text-sm text-muted mt-0.5">Langfristige Saison- und Leistungsziele</p>
-        </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-end">
         <button
           onClick={() => (showForm ? cancelForm() : startCreate())}
           className="flex items-center gap-1.5 text-sm font-medium bg-accent text-black rounded-lg px-3 py-2 hover:opacity-90"
         >
           <Plus size={16} /> Neues Ziel
         </button>
-      </header>
-
-      <div className="p-8 space-y-6">
-        {showForm && (
-          <Card title={editingId ? "Ziel bearbeiten" : "Neues Ziel anlegen"}>
-            <form onSubmit={submitForm} className="grid md:grid-cols-2 gap-3">
-              <input
-                required
-                placeholder="Titel (z.B. Deutsche Meisterschaft)"
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm md:col-span-2"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-              <select
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value as Goal["category"] })}
-              >
-                {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-              <input
-                required
-                type="date"
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
-                value={form.targetDate}
-                onChange={(e) => setForm({ ...form, targetDate: e.target.value })}
-              />
-              <input
-                placeholder="Kennzahl (z.B. 2km-Zeit)"
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
-                value={form.metricLabel}
-                onChange={(e) => setForm({ ...form, metricLabel: e.target.value })}
-              />
-              <input
-                placeholder="Einheit (z.B. Sekunden, Watt, kg)"
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
-                value={form.unit}
-                onChange={(e) => setForm({ ...form, unit: e.target.value })}
-              />
-              <input
-                placeholder="Zielwert"
-                type="number"
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
-                value={form.targetValue}
-                onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
-              />
-              <input
-                placeholder="Aktueller Wert (optional)"
-                type="number"
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
-                value={form.currentValue}
-                onChange={(e) => setForm({ ...form, currentValue: e.target.value })}
-              />
-              <textarea
-                placeholder="Notizen"
-                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm md:col-span-2"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              />
-              <div className="md:col-span-2 flex items-center gap-2">
-                <button className="bg-accent text-black rounded-lg px-3 py-2 text-sm font-medium">
-                  {editingId ? "Speichern" : "Anlegen"}
-                </button>
-                <button type="button" onClick={cancelForm} className="flex items-center gap-1 text-sm text-muted px-3 py-2">
-                  <X size={14} /> Abbrechen
-                </button>
-              </div>
-            </form>
-          </Card>
-        )}
-
-        <div>
-          <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Aktuelle Ziele</h2>
-          {activeGoals.length === 0 && <p className="text-sm text-muted">Keine aktiven Ziele.</p>}
-          <div className="grid md:grid-cols-2 gap-4">{activeGoals.map(renderGoalCard)}</div>
-        </div>
-
-        {achievedGoals.length > 0 && (
-          <div>
-            <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
-              <Target size={13} /> Erreichte Ziele
-            </h2>
-            <div className="grid md:grid-cols-2 gap-4">{achievedGoals.map(renderGoalCard)}</div>
-          </div>
-        )}
       </div>
+
+      {showForm && (
+        <Card title={editingId ? "Ziel bearbeiten" : "Neues Ziel anlegen"}>
+          <form onSubmit={submitForm} className="grid md:grid-cols-2 gap-3">
+            <input
+              required
+              placeholder="Titel (z.B. Deutsche Meisterschaft)"
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm md:col-span-2"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
+            <select
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value as Goal["category"] })}
+            >
+              {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+            <input
+              required
+              type="date"
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
+              value={form.targetDate}
+              onChange={(e) => setForm({ ...form, targetDate: e.target.value })}
+            />
+            <input
+              placeholder="Kennzahl (z.B. 2km-Zeit)"
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
+              value={form.metricLabel}
+              onChange={(e) => setForm({ ...form, metricLabel: e.target.value })}
+            />
+            <input
+              placeholder="Einheit (z.B. Sekunden, Watt, kg)"
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
+              value={form.unit}
+              onChange={(e) => setForm({ ...form, unit: e.target.value })}
+            />
+            <input
+              placeholder="Zielwert"
+              type="number"
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
+              value={form.targetValue}
+              onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
+            />
+            <input
+              placeholder="Aktueller Wert (optional)"
+              type="number"
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
+              value={form.currentValue}
+              onChange={(e) => setForm({ ...form, currentValue: e.target.value })}
+            />
+            <textarea
+              placeholder="Notizen"
+              className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm md:col-span-2"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+            <div className="md:col-span-2 flex items-center gap-2">
+              <button className="bg-accent text-black rounded-lg px-3 py-2 text-sm font-medium">
+                {editingId ? "Speichern" : "Anlegen"}
+              </button>
+              <button type="button" onClick={cancelForm} className="flex items-center gap-1 text-sm text-muted px-3 py-2">
+                <X size={14} /> Abbrechen
+              </button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      <div>
+        <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Aktuelle Ziele</h2>
+        {activeGoals.length === 0 && <p className="text-sm text-muted">Keine aktiven Ziele.</p>}
+        <div className="grid md:grid-cols-2 gap-4">{activeGoals.map(renderGoalCard)}</div>
+      </div>
+
+      {achievedGoals.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3 flex items-center gap-1.5">
+            <Target size={13} /> Erreichte Ziele
+          </h2>
+          <div className="grid md:grid-cols-2 gap-4">{achievedGoals.map(renderGoalCard)}</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getIllnessLog, saveIllnessLog } from "@/lib/data/store";
 import type { IllnessLogEntry } from "@/lib/types";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   const now = new Date().toISOString();
   const newEntry: IllnessLogEntry = {
-    id: `illness-${Date.now()}`,
+    id: randomUUID(),
     startDate: body.startDate ?? now.slice(0, 10),
     endDate: body.endDate ?? null,
     symptoms: body.symptoms ?? [],

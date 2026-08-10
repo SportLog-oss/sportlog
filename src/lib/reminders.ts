@@ -39,6 +39,25 @@ export async function evaluatePendingReminders(prefs: ReminderPreferences, today
     }
   }
 
+  if (isEnabled("log-pain")) {
+    const logs = await getTrainingLogEntries();
+    const withPain = [...logs].filter((l) => l.pain.length > 0 || l.injury).sort((a, b) => b.date.localeCompare(a.date));
+    const latestPain = withPain[0];
+    if (latestPain) {
+      const daysSince = (Date.now() - new Date(latestPain.date).getTime()) / 86_400_000;
+      const hasNewerCheckin = logs.some((l) => l.date > latestPain.date);
+      // Only nudge for a pain report that's a few days old and hasn't been followed up on yet —
+      // not today's (that's log-training's job) and not indefinitely (stops being "current").
+      if (daysSince >= 1 && daysSince <= 5 && !hasNewerCheckin) {
+        candidates.push({
+          type: "log-pain",
+          title: "Schmerzen erfassen",
+          message: `Du hattest zuletzt am ${latestPain.date} Schmerzen oder eine Verletzung vermerkt — wie ist der aktuelle Stand?`,
+        });
+      }
+    }
+  }
+
   if (isEnabled("update-illness")) {
     const illness = await getIllnessLog();
     const stale = illness.filter((i) => {

@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
+  let body: { email?: string; password?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
+  }
+  const { email, password } = body;
 
-  if (!process.env.APP_PASSWORD || !process.env.SESSION_TOKEN) {
-    return NextResponse.json({ error: "Server nicht konfiguriert" }, { status: 500 });
+  if (!email || !password) {
+    return NextResponse.json({ error: "E-Mail und Passwort erforderlich" }, { status: 400 });
   }
 
-  if (password !== process.env.APP_PASSWORD) {
-    return NextResponse.json({ error: "Falsches Passwort" }, { status: 401 });
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    return NextResponse.json({ error: "Anmeldung fehlgeschlagen" }, { status: 401 });
   }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set("sportlog_session", process.env.SESSION_TOKEN, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  });
-  return res;
+  return NextResponse.json({ ok: true });
 }

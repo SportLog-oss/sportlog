@@ -1,5 +1,6 @@
 import {
   getActivities,
+  getActivityNotes,
   getAnalyticsSummary,
   getAnomalies,
   getBenchmarks,
@@ -37,6 +38,7 @@ export async function buildAthleteContext(): Promise<string> {
     strengthSessions,
     benchmarks,
     trainingLogEntries,
+    activityNotes,
   ] = await Promise.all([
     getDailyMetrics(),
     getAnalyticsSummary(),
@@ -52,6 +54,7 @@ export async function buildAthleteContext(): Promise<string> {
     getStrengthSessions(),
     getBenchmarks(),
     getTrainingLogEntries(),
+    getActivityNotes(),
   ]);
 
   const last = daily.rows[daily.rows.length - 1];
@@ -110,6 +113,19 @@ export async function buildAthleteContext(): Promise<string> {
     lines.push(
       `${dateStr}: ${act.activityName} (${act.activityType}), ${min} min${act.distanceInMeters > 0 ? `, ${km} km` : ""}, Ø HF ${act.averageHeartRateInBeatsPerMinute ?? "–"}.`
     );
+  }
+  lines.push("");
+
+  lines.push("== Notizen & Ergo-Foto-Analysen zu Einheiten (letzte 5) ==");
+  if (activityNotes.length === 0) {
+    lines.push("Keine Notizen erfasst.");
+  } else {
+    const activityNameById = new Map(activities.activities.map((a) => [a.activityId, a.activityName]));
+    const recentNotes = [...activityNotes].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)).slice(-5);
+    for (const n of recentNotes) {
+      const name = activityNameById.get(n.activityId) ?? `Aktivität ${n.activityId}`;
+      lines.push(`${name}: ${n.note}`);
+    }
   }
   lines.push("");
 
@@ -211,7 +227,7 @@ export async function buildAthleteContext(): Promise<string> {
 
 export const COACH_SYSTEM_PROMPT = `Du bist der persönliche KI-Coach von SportLog für einen Leistungssportler: eine Kombination aus Trainer, Sportwissenschaftler und Gesundheitsanalyst, integriert in dessen Trainings- und Gesundheits-App.
 
-Du hast Zugriff auf einen aktuellen Datenschnappschuss des Athleten: Trainingsdaten, HFV, Ruhepuls, Schlaf, Belastung (CTL/ATL/TSB, ACWR), Verletzungsrisiko, Ziele, Wettkämpfe, Krafttraining, Benchmarks/Bestwerte, ein Trainingsprotokoll (Schmerzen/Muskelkater/RPE pro Einheit), ein Krankheits-/Verletzungsprotokoll und Check-ins zur mentalen Gesundheit. Nutze diese Daten, um konkrete, verständliche und wissenschaftlich fundierte Antworten zu geben.
+Du hast Zugriff auf einen aktuellen Datenschnappschuss des Athleten: Trainingsdaten, HFV, Ruhepuls, Schlaf, Belastung (CTL/ATL/TSB, ACWR), Verletzungsrisiko, Ziele, Wettkämpfe, Krafttraining, Benchmarks/Bestwerte, Notizen und Ergo-Foto-Analysen zu einzelnen Einheiten, ein Trainingsprotokoll (Schmerzen/Muskelkater/RPE pro Einheit), ein Krankheits-/Verletzungsprotokoll und Check-ins zur mentalen Gesundheit. Nutze diese Daten, um konkrete, verständliche und wissenschaftlich fundierte Antworten zu geben.
 
 Wichtig – der Nutzer betreibt Leistungssport:
 - Empfiehl NIEMALS pauschal "weniger trainieren" oder einen Trainingsabbruch. Bewerte Belastung, Regeneration, Wettkampfphasen, Trainingslager und Krankheiten differenziert und schlage konkrete, angepasste Maßnahmen vor (z.B. Intensität statt Umfang reduzieren, gezielte Regenerationstage, Belastungssteuerung um einen Wettkampf herum).

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getMentalHealthCheckins, saveMentalHealthCheckins } from "@/lib/data/store";
 import type { MentalHealthCheckin } from "@/lib/types";
@@ -5,6 +6,12 @@ import type { MentalHealthCheckin } from "@/lib/types";
 export async function GET() {
   const checkins = await getMentalHealthCheckins();
   return NextResponse.json(checkins.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+}
+
+function parseScale0to10(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "number" || value < 0 || value > 10) return null;
+  return value;
 }
 
 export async function POST(req: NextRequest) {
@@ -16,7 +23,7 @@ export async function POST(req: NextRequest) {
   const checkins = await getMentalHealthCheckins();
   const now = new Date().toISOString();
   const newCheckin: MentalHealthCheckin = {
-    id: `mh-${Date.now()}`,
+    id: randomUUID(),
     timestamp: body.timestamp ?? now,
     type: body.type === "mood" ? "mood" : "emotion",
     valence: body.valence,
@@ -24,6 +31,10 @@ export async function POST(req: NextRequest) {
     influenceTags: body.influenceTags ?? [],
     note: body.note ?? "",
     createdAt: now,
+    motivation: parseScale0to10(body.motivation),
+    stress: parseScale0to10(body.stress),
+    energy: parseScale0to10(body.energy),
+    sleepQuality: parseScale0to10(body.sleepQuality),
   };
 
   checkins.push(newCheckin);

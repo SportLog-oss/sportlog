@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getOpenRouterClient,
@@ -7,7 +8,7 @@ import {
   friendlyOpenRouterError,
 } from "@/lib/openrouter";
 import { getActivities, getActivityNotes, saveActivityNotes, getBenchmarks, saveBenchmarks } from "@/lib/data/store";
-import { stripMarkdown } from "@/lib/textFormat";
+import { stripMarkdown, extractJson } from "@/lib/textFormat";
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // ~8MB base64 payload guard
 
@@ -38,15 +39,34 @@ interface PhotoAnalysisResult {
   durationSeconds: number | null;
 }
 
+// Plausibility bounds for a rowing/ergo-style session — guards against the AI misreading a
+// display and handing back a technically-well-formed but nonsensical number (e.g. reading "2000m"
+// as a duration, or a corrupted watt value as distance) that would otherwise get written straight
+// into activity_notes/benchmarks.
+const MIN_PLAUSIBLE_DISTANCE_M = 50;
+const MAX_PLAUSIBLE_DISTANCE_M = 50_000;
+const MIN_PLAUSIBLE_DURATION_S = 10;
+const MAX_PLAUSIBLE_DURATION_S = 6 * 60 * 60;
+
 function parseAnalysisResult(raw: string): PhotoAnalysisResult | null {
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(extractJson(raw));
     if (typeof parsed.analysisText !== "string") return null;
+
+    let distanceMeters = typeof parsed.distanceMeters === "number" ? parsed.distanceMeters : null;
+    if (distanceMeters !== null && (distanceMeters < MIN_PLAUSIBLE_DISTANCE_M || distanceMeters > MAX_PLAUSIBLE_DISTANCE_M)) {
+      distanceMeters = null;
+    }
+    let durationSeconds = typeof parsed.durationSeconds === "number" ? parsed.durationSeconds : null;
+    if (durationSeconds !== null && (durationSeconds < MIN_PLAUSIBLE_DURATION_S || durationSeconds > MAX_PLAUSIBLE_DURATION_S)) {
+      durationSeconds = null;
+    }
+
     return {
       readable: typeof parsed.readable === "boolean" ? parsed.readable : true,
       analysisText: parsed.analysisText,
-      distanceMeters: typeof parsed.distanceMeters === "number" ? parsed.distanceMeters : null,
-      durationSeconds: typeof parsed.durationSeconds === "number" ? parsed.durationSeconds : null,
+      distanceMeters,
+      durationSeconds,
     };
   } catch {
     return null;
@@ -64,7 +84,7 @@ const BENCHMARK_PRESETS: { name: string; distanceMeters: number }[] = [
 const ROWING_TYPES = ["ROWING_V2", "INDOOR_ROWING"];
 
 export async function POST(req: NextRequest) {
-  const { imageBase64, mimeType } = await req.json();
+  const { imageBase64, mimeType, previewOnly = false } = await req.json();
   if (!imageBase64) return NextResponse.json({ error: "imageBase64 required" }, { status: 400 });
   if (imageBase64.length > MAX_IMAGE_BYTES) {
     return NextResponse.json({ error: "Foto ist zu groß (max. ~6MB). Bitte ein kleineres Bild wählen." }, { status: 413 });
@@ -79,11 +99,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Deliberately NOT setting response_format: { type: "json_object" } here — live-tested and
+    // confirmed reproducible: combining structured-output mode with image input makes
+    // nvidia/nemotron-nano-12b-v2-vl:free (and, per its shared free-tier behavior, likely other
+    // budget vision models too) hang for 45s+ before eventually still returning plain text, while
+    // the exact same request without response_format or without the image each complete in under
+    // a second. The prompt already demands JSON-only prose, and parseAnalysisResult/extractJson
+    // above strips markdown fences or extracts the first {...} object, so we don't need the API
+    // to enforce it — this was very likely the main cause of "Bildanalyse funktioniert nicht
+    // zuverlässig", not the model choice itself.
     const response = await createChatCompletionWithFallback(
       openrouter,
       {
         max_tokens: 1200,
-        response_format: { type: "json_object" },
         messages: [
           {
             role: "user",
@@ -110,17 +138,50 @@ export async function POST(req: NextRequest) {
     const extracted = { distanceMeters: parsed.distanceMeters, durationSeconds: parsed.durationSeconds };
     const analysis = stripMarkdown(parsed.analysisText);
 
+    // The Ergo-Test flow first lets the athlete verify the recognised values. Nothing is written
+    // until the separate confirmation step creates the OCR workout and updates its benchmark.
+    if (previewOnly) {
+      return NextResponse.json({
+        analysis,
+        extracted,
+        readable: parsed.readable,
+        matchedActivity: null,
+        matchAttempted: false,
+        savedNote: false,
+        noMatchReason: null,
+        benchmarkUpdate: null,
+      });
+    }
+
     let matchedActivity: { activityId: number; activityName: string; date: string } | null = null;
     let benchmarkUpdate: { name: string; value: number; isNewBest: boolean } | null = null;
+    // These three flags are what the UI uses to show "erkannt / gespeichert / zugeordnet" as three
+    // distinct, always-visible facts instead of silently doing nothing when a step doesn't apply.
+    let matchAttempted = false;
+    let savedNote = false;
+    let noMatchReason: string | null = null;
 
     if (!parsed.readable) {
-      return NextResponse.json({ analysis, extracted, matchedActivity, benchmarkUpdate, readable: false });
+      return NextResponse.json({
+        analysis,
+        extracted,
+        matchedActivity,
+        matchAttempted,
+        savedNote,
+        noMatchReason,
+        benchmarkUpdate,
+        readable: false,
+      });
     }
 
     if (extracted.distanceMeters && extracted.durationSeconds) {
       const { distanceMeters, durationSeconds } = extracted;
+      matchAttempted = true;
 
-      // Try to attach the analysis as a note on a matching recent rowing activity.
+      // Try to attach the analysis as a note on a matching recent rowing activity. Matching is
+      // scoped to Garmin-synced activities (source='garmin') — a workout logged via "Training
+      // manuell erfassen" has no numeric Garmin activity id to attach a note to, so it can never
+      // match here; noMatchReason below makes that outcome explicit instead of silent.
       try {
         const { activities } = await getActivities();
         const match = activities.find((a) => {
@@ -147,14 +208,18 @@ export async function POST(req: NextRequest) {
             };
           }
           await saveActivityNotes(notes);
+          savedNote = true;
           matchedActivity = {
             activityId: match.activityId,
             activityName: match.activityName,
             date: new Date(match.startTimeInSeconds * 1000).toISOString().slice(0, 10),
           };
+        } else {
+          noMatchReason = "Keine passende Rudereinheit in den letzten Trainings gefunden (Distanz/Zeit weichen zu stark ab, oder die Einheit wurde nicht über Garmin synchronisiert).";
         }
       } catch {
         // best-effort — analysis text is still returned even if matching fails
+        noMatchReason = "Zuordnung zu einem Training fehlgeschlagen.";
       }
 
       // Check whether this is a new personal best for one of the ergo benchmark presets.
@@ -176,7 +241,7 @@ export async function POST(req: NextRequest) {
               existing.entries.sort((a, b) => a.date.localeCompare(b.date));
             } else {
               benchmarks.push({
-                id: `bench-${Date.now()}`,
+                id: randomUUID(),
                 name: preset.name,
                 kind: "time",
                 unit: "s",
@@ -194,7 +259,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ analysis, extracted, matchedActivity, benchmarkUpdate, readable: true });
+    return NextResponse.json({
+      analysis,
+      extracted,
+      matchedActivity,
+      matchAttempted,
+      savedNote,
+      noMatchReason,
+      benchmarkUpdate,
+      readable: true,
+    });
   } catch (error) {
     const { message, status } = friendlyOpenRouterError(error);
     return NextResponse.json({ error: message }, { status });

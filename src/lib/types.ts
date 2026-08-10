@@ -151,6 +151,25 @@ export interface Activity {
   avgPower?: number;
   normalizedPower?: number;
   maxPower?: number;
+  maxSpeedInMetersPerSecond?: number;
+  maxPaceInMinutesPerKilometer?: number;
+  deviceName?: string;
+  steps?: number;
+  isWebUpload?: boolean;
+  variabilityIndex?: number;
+  aerobicDecouplingPct?: number;
+  hrDriftPct?: number;
+  tempC?: number;
+  humidityPct?: number;
+  windKph?: number;
+  weatherAdjustedPower?: number;
+  avgGroundContactMs?: number;
+  avgVerticalOscCm?: number;
+  avgStrideLengthM?: number;
+  rpe?: number;
+  feel?: number;
+  totalVolume?: number;
+  totalSets?: number;
   hrZones?: { z1: number; z2: number; z3: number; z4: number; z5: number };
   notes?: string;
 }
@@ -274,6 +293,18 @@ export type ActivityNote = {
   updatedAt: string;
 };
 
+// Automatically detected records (Batch E) — kept separate from the manually-entered Benchmark
+// above. `category` values match PersonalBestCategory in src/lib/personalBests.ts.
+export type PersonalBest = {
+  id: string;
+  category: string;
+  value: number;
+  workoutId: string | null;
+  achievedAt: string;
+  previousValue: number | null;
+  previousAchievedAt: string | null;
+};
+
 export type IllnessLogEntry = {
   id: string;
   startDate: string;
@@ -314,6 +345,11 @@ export type MentalHealthCheckin = {
   influenceTags: string[];
   note: string;
   createdAt: string;
+  /** 0-10 scale, only set on type==='mood' (the daily check-in) — null on ad-hoc 'emotion' logs. */
+  motivation: number | null;
+  stress: number | null;
+  energy: number | null;
+  sleepQuality: number | null;
 };
 
 export type ChatSession = {
@@ -340,12 +376,72 @@ export interface ActivitySeriesPoint {
   cadence: number | null;
   power: number | null;
   distanceKm: number | null;
+  paceSecondsPerKm: number | null;
+  rowingPaceSecondsPer500: number | null;
+  strokeDistanceM: number | null;
+  temperatureC: number | null;
+  groundContactTimeMs: number | null;
+  verticalOscillationCm: number | null;
+  strideLengthM: number | null;
+  verticalRatioPct: number | null;
 }
 
-// "Training protokollieren" and "Schmerzen erfassen" (TASKS.md #9) share one reminder type
-// because both live in the same Trainingsprotokoll form (see TrainingLogSection) — there's no
-// separate "pain only" entry point, so a distinct reminder type would just duplicate this one.
-export type ReminderType = "log-training" | "update-illness" | "log-mental-health" | "daily-checkin";
+export type ActivityStatistic = {
+  key: string;
+  label: string;
+  value: string;
+};
+
+export type ActivityStatisticSection = {
+  key: string;
+  title: string;
+  items: ActivityStatistic[];
+};
+
+export type ActivityDetails = {
+  hasDetails: boolean;
+  statistics: ActivityStatisticSection[];
+  overviewMetrics: ActivityStatistic[];
+  hrZones: Activity["hrZones"] | null;
+  hrZonesSource: string | null;
+  importedLog: ImportedTrainingLogData;
+  laps: {
+    index: number;
+    intensity: string;
+    trigger: string;
+    duration: string;
+    distance: string;
+    paceOrSpeed: string;
+    hrAvg: number | null;
+    hrMax: number | null;
+    cadenceAvg: number | null;
+    cadenceMax: number | null;
+    powerW: number | null;
+    ascentM: number | null;
+    descentM: number | null;
+  }[];
+  series: ActivitySeriesPoint[];
+};
+
+export type ImportedTrainingLogData = {
+  source: "Garmin / AthleteData";
+  rpe: number | null;
+  feel: number | null;
+  items: ActivityStatistic[];
+};
+
+// "log-pain" and "log-training" both ultimately point at the same Trainingsprotokoll form (see
+// TrainingLogSection) — there's no separate pain-only entry screen — but they fire under
+// different conditions (see src/lib/reminders.ts): log-training nudges about *today's* unlogged
+// activities, log-pain nudges to revisit a *previously reported* pain/injury that hasn't been
+// followed up on in a few days.
+export type ReminderType =
+  | "log-training"
+  | "log-pain"
+  | "update-illness"
+  | "log-mental-health"
+  | "daily-checkin"
+  | "new-activity";
 
 export type ReminderPreferences = {
   enabledTypes: ReminderType[];
@@ -353,4 +449,62 @@ export type ReminderPreferences = {
   preferredHour: number;
   /** Date (YYYY-MM-DD) each reminder type was last sent, to avoid duplicate pushes per day */
   lastSent: Partial<Record<ReminderType, string>>;
+};
+
+export type Profile = {
+  weightKg: number | null;
+  hrRest: number | null;
+  hrMax: number | null;
+  vo2max: number | null;
+  settings: Record<string, unknown>;
+  ftpWatts: number | null;
+  importedValues: Partial<Record<ProfileFieldName, ProfileImportedValue>>;
+  fieldSources: Partial<Record<ProfileFieldName, "manual" | "Garmin / AthleteData">>;
+};
+
+export type ProfileFieldName = "weightKg" | "hrRest" | "hrMax" | "vo2max" | "ftpWatts";
+
+export type ProfileImportedValue = {
+  value: number;
+  source: "Garmin / AthleteData";
+  observedAt: string;
+};
+
+export type WeightEntry = {
+  id: string;
+  measuredOn: string;
+  measuredAt: string;
+  weightKg: number;
+  source: "manual" | "athlete_data";
+};
+
+export type AthleteDataSyncStatus = {
+  status: "never" | "syncing" | "success" | "partial" | "failed";
+  trigger: "manual" | "cron" | "external_push" | null;
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  completedAt: string | null;
+  savedKeys: string[];
+  failures: { key: string; error: string }[];
+};
+
+export type WorkoutSource = "garmin" | "concept2_ocr" | "manual";
+
+/** A manually- or OCR-entered training session (source !== 'garmin'). Kept separate from the
+ * numeric-Garmin-id-keyed Activity/getActivities() path — see docs/TASKS.md. */
+export type Workout = {
+  id: string;
+  externalId: string | null;
+  workoutType: string;
+  source: WorkoutSource;
+  startedAt: string;
+  title: string | null;
+  durationSeconds: number | null;
+  distanceMeters: number | null;
+  calories: number | null;
+  avgHr: number | null;
+  avgWatt: number | null;
+  summaryText: string | null;
+  importedRpe: number | null;
+  importedFeel: number | null;
 };

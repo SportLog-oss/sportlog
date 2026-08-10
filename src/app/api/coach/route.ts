@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
 import type OpenAI from "openai";
 import { getOpenRouterClient, COACH_MODEL, COACH_MODEL_FALLBACK } from "@/lib/openrouter";
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
   const history = await getChatMessages(chatId);
   const now = new Date().toISOString();
   const userMessage: PersistedChatMessage = {
-    id: `msg-${Date.now()}-u`,
+    id: randomUUID(),
     chatId,
     role: "user",
     content: messageText,
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest) {
 
         const cleaned = stripMarkdown(finalText);
         const assistantMessage: PersistedChatMessage = {
-          id: `msg-${Date.now()}-a`,
+          id: randomUUID(),
           chatId,
           role: "assistant",
           content: cleaned,

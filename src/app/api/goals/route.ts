@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getGoals, saveGoals } from "@/lib/data/store";
 import type { Goal } from "@/lib/types";
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   const goals = await getGoals();
 
   const newGoal: Goal = {
-    id: `goal-${Date.now()}`,
+    id: randomUUID(),
     title: body.title,
     category: body.category ?? "sonstiges",
     targetDate: body.targetDate,

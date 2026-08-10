@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import { getAnomalies, getCompetitions, getDailyMetrics, getGoals, getInjuryRisk } from "@/lib/data/store";
+import { getActivities, getAnomalies, getCompetitions, getDailyMetrics, getGoals, getInjuryRisk } from "@/lib/data/store";
 import { computeSleepPerformance, computeStrain, generateTodayRecommendation, generateWarnings } from "@/lib/insights";
 
 export async function GET() {
-  const daily = await getDailyMetrics();
-  const injuryRisk = await getInjuryRisk();
-  const anomalies = await getAnomalies();
-  const goals = await getGoals();
-  const competitions = await getCompetitions();
+  const [daily, injuryRisk, anomalies, goals, competitions, activityCache] = await Promise.all([
+    getDailyMetrics(),
+    getInjuryRisk(),
+    getAnomalies(),
+    getGoals(),
+    getCompetitions(),
+    getActivities(),
+  ]);
 
   const rows = daily.rows;
   const lastWithRecovery = [...rows].reverse().find((r) => r.recoveryScore !== null);
@@ -26,5 +29,10 @@ export async function GET() {
     warnings: generateWarnings(rows, anomalies.anomalies, injuryRisk),
     goals: activeGoals.slice(0, 3),
     competitions: competitions.slice(0, 3),
+    todayActivities: activityCache.activities.filter(
+      (activity) =>
+        new Date(activity.startTimeInSeconds * 1000).toISOString().slice(0, 10) ===
+        new Date().toISOString().slice(0, 10)
+    ),
   });
 }

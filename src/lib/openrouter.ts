@@ -24,20 +24,31 @@ export function getOpenRouterClient(): OpenAI | null {
 //
 // This account has no purchased OpenRouter credits (confirmed via a live 402 "Insufficient
 // credits" response from a paid model), so the pinned models MUST carry the ":free" suffix —
-// paid models fail every request regardless of quality. Both models below were verified live
-// against https://openrouter.ai/api/v1/models to confirm they (a) are free, (b) declare
-// "tools" in supported_parameters, and (c) accept image input — then smoke-tested with a real
-// completion call. Re-verify against that endpoint if either model is ever retired.
-export const COACH_MODEL = "google/gemma-4-31b-it:free";
-export const COACH_MODEL_FALLBACK = "nvidia/nemotron-nano-12b-v2-vl:free";
+// paid models fail every request regardless of quality. Both models were verified live against
+// https://openrouter.ai/api/v1/models to confirm they (a) are free, (b) declare "tools" in
+// supported_parameters, and (c) accept image input.
+//
+// Ordering note (2026-07): live-tested both models directly against OpenRouter. `nemotron-nano`
+// returns clean results immediately; `gemma-4-31b` is currently rate-limited on its shared free
+// pool ("temporarily rate-limited upstream", HTTP 429 on essentially every call) — using it as
+// primary means EVERY request pays a failed-call-then-fallback round trip. Put the currently
+// reliable model first; re-check both against the /models endpoint (and with a real request) if
+// this ever needs revisiting, since free-tier availability shifts over time.
+export const COACH_MODEL = "nvidia/nemotron-nano-12b-v2-vl:free";
+export const COACH_MODEL_FALLBACK = "google/gemma-4-31b-it:free";
 
-export const PHOTO_ANALYSIS_MODEL = "google/gemma-4-31b-it:free";
-export const PHOTO_ANALYSIS_MODEL_FALLBACK = "nvidia/nemotron-nano-12b-v2-vl:free";
+// The former Nemotron Nano 12B endpoint currently accepts image requests but returns no usable
+// completion. These two models were re-checked with image input on 2026-08-03; both produced a
+// valid response, so the Ergo flow no longer depends on the broken endpoint.
+export const PHOTO_ANALYSIS_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
+export const PHOTO_ANALYSIS_MODEL_FALLBACK = "google/gemma-4-26b-a4b-it:free";
 
 /**
  * Calls the primary model and transparently retries with the fallback model on server-side
- * errors, timeouts, or rate limits. Client errors (bad request, auth) are not retried since the
- * fallback model would fail the same way.
+ * errors, timeouts, rate limits, or a 400 (which on OpenRouter often means "model temporarily
+ * unavailable/misconfigured upstream," not a malformed request — the fallback model gets a real
+ * chance to succeed). Auth/permission errors (401/403) are not retried since the fallback model
+ * would fail identically against the same account.
  */
 export async function createChatCompletionWithFallback(
   client: OpenAI,
@@ -47,8 +58,8 @@ export async function createChatCompletionWithFallback(
   try {
     return await client.chat.completions.create({ ...params, model: models.primary });
   } catch (error) {
-    const isClientError = error instanceof OpenAI.APIError && !!error.status && error.status < 500 && error.status !== 429;
-    if (isClientError) throw error;
+    const isAuthError = error instanceof OpenAI.APIError && (error.status === 401 || error.status === 403);
+    if (isAuthError) throw error;
     return await client.chat.completions.create({ ...params, model: models.fallback });
   }
 }

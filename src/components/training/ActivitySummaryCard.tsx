@@ -4,8 +4,15 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Sparkles, Loader2 } from "lucide-react";
 
+interface SummarySections {
+  summary: string;
+  load: string;
+  recovery: string;
+  suggestions: string;
+}
+
 export function ActivitySummaryCard({ activityId }: { activityId: number }) {
-  const [summary, setSummary] = useState<string | null>(null);
+  const [sections, setSections] = useState<SummarySections | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +26,7 @@ export function ActivitySummaryCard({ activityId }: { activityId: number }) {
         setError(data.error ?? "Zusammenfassung fehlgeschlagen.");
         return;
       }
-      setSummary(data.summary);
+      setSections(data);
     } catch {
       setError("Verbindung fehlgeschlagen.");
     } finally {
@@ -29,8 +36,32 @@ export function ActivitySummaryCard({ activityId }: { activityId: number }) {
 
   return (
     <Card title="KI-Zusammenfassung">
-      {summary ? (
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{summary}</p>
+      {sections ? (
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{sections.summary}</p>
+          {(sections.load || sections.recovery || sections.suggestions) && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              {sections.load && (
+                <div>
+                  <p className="text-xs font-semibold text-muted mb-1">Belastung</p>
+                  <p className="text-sm leading-relaxed">{sections.load}</p>
+                </div>
+              )}
+              {sections.recovery && (
+                <div>
+                  <p className="text-xs font-semibold text-muted mb-1">Erholung</p>
+                  <p className="text-sm leading-relaxed">{sections.recovery}</p>
+                </div>
+              )}
+              {sections.suggestions && (
+                <div>
+                  <p className="text-xs font-semibold text-muted mb-1">Verbesserungsvorschläge</p>
+                  <p className="text-sm leading-relaxed">{sections.suggestions}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-muted">

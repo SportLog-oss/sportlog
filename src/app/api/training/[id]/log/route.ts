@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getTrainingLogEntries, saveTrainingLogEntries } from "@/lib/data/store";
 import type { TrainingLogEntry } from "@/lib/types";
@@ -21,7 +22,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const updated: TrainingLogEntry =
     idx === -1
       ? {
-          id: `tlog-${Date.now()}`,
+          id: randomUUID(),
           activityId,
           date: body.date ?? now.slice(0, 10),
           pain: body.pain ?? [],

@@ -7,8 +7,8 @@ import { MentalHealthSection } from "@/components/health/MentalHealthSection";
 const TABS = ["Übersicht", "Krankheiten", "Mentale Gesundheit"] as const;
 type Tab = (typeof TABS)[number];
 
-export function HealthTabs({ overview }: { overview: ReactNode }) {
-  const [tab, setTab] = useState<Tab>("Übersicht");
+export function HealthTabs({ overview, initialTab = "Übersicht" }: { overview: ReactNode; initialTab?: Tab }) {
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   return (
     <div className="space-y-6">

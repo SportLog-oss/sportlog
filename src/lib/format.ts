@@ -1,6 +1,7 @@
 export function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
+  const totalMinutes = Math.round(seconds / 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
   if (h > 0) return `${h}h ${m}min`;
   return `${m}min`;
 }
@@ -8,6 +9,13 @@ export function formatDuration(seconds: number): string {
 export function formatDate(input: string | number): string {
   const date = typeof input === "number" ? new Date(input * 1000) : new Date(input);
   return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+export function localIsoDate(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function formatDistance(meters: number): string {
@@ -60,6 +68,17 @@ export function translatePowerProfileTerm(value: string): string {
   const key = value.toLowerCase();
   if (POWER_PROFILE_TERMS[key]) return POWER_PROFILE_TERMS[key];
   return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Precise clock display ("12:34" / "1:02:34") for a raw seconds value — distinct from
+// formatDuration's rounded "1h 27min" style, needed where exact PB times matter.
+export function formatClockDuration(seconds: number): string {
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function formatDurationLabel(seconds: number): string {

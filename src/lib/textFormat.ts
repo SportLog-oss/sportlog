@@ -7,3 +7,13 @@ export function stripMarkdown(text: string): string {
     .replace(/^\s*[*+]\s+/gm, "- ")
     .trim();
 }
+
+// Models sometimes wrap JSON in markdown fences or add surrounding prose despite instructions —
+// this strips fences first, then falls back to extracting the first {...} block.
+export function extractJson(raw: string): string {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) return fenced[1].trim();
+  const braced = raw.match(/\{[\s\S]*\}/);
+  if (braced) return braced[0];
+  return raw.trim();
+}

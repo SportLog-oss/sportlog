@@ -1,54 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase/config";
 
 // Routes that must stay reachable without a user session:
 // - /login and its API so the user can actually log in
 // - /api/sync, /api/cron/sync and /api/cron/reminders, which are service-to-service
 //   (SYNC_SECRET / CRON_SECRET), not user-facing, and are called by infrastructure that
-//   can't hold a browser cookie
+//   can't hold a browser cookie or a Supabase session
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/sync", "/api/cron/sync", "/api/cron/reminders"];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-function hasValidSession(req: NextRequest): boolean {
-  const sessionToken = process.env.SESSION_TOKEN;
-  if (!sessionToken) {
-    // Fail open rather than lock everyone out — convenient for local dev, but on a deployed
-    // instance this means auth is silently disabled for everyone. Make that loud instead of
-    // silent: this runs on every unauthenticated request, so it'll show up unmistakably in
-    // production logs until SESSION_TOKEN is set.
-    if (process.env.VERCEL_ENV === "production") {
-      console.error(
-        "[proxy] SESSION_TOKEN is not set in a production deployment — auth is running fail-open, every request is treated as authenticated. Set SESSION_TOKEN in the Vercel project's environment variables."
-      );
-    }
-    return true;
+function unauthorized(req: NextRequest, pathname: string) {
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const cookie = req.cookies.get("sportlog_session")?.value;
-  if (cookie === sessionToken) return true;
-  const headerPassword = req.headers.get("x-app-password");
-  if (headerPassword && process.env.APP_PASSWORD && headerPassword === process.env.APP_PASSWORD) return true;
-  return false;
+  return NextResponse.redirect(new URL("/login", req.url));
 }
 
-export function proxy(req: NextRequest) {
+// Mobile sends `Authorization: Bearer <access_token>` instead of a cookie.
+async function hasValidBearerSession(bearer: string): Promise<boolean> {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser(bearer);
+  return !!user;
+}
+
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (isPublic(pathname) || pathname.startsWith("/_next") || pathname === "/favicon.ico") {
     return NextResponse.next();
   }
 
-  if (hasValidSession(req)) {
-    return NextResponse.next();
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer /i, "");
+  if (bearer) {
+    return (await hasValidBearerSession(bearer)) ? NextResponse.next() : unauthorized(req, pathname);
   }
 
-  if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Web: cookie-based Supabase session. @supabase/ssr needs the request/response cookie
+  // adapter pair below (not next/headers' cookies()) to be able to refresh the session and
+  // rewrite the cookie on the response as it flows through middleware.
+  let response = NextResponse.next({ request: req });
+  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookies: {
+      getAll: () => req.cookies.getAll(),
+      setAll: (cookiesToSet) => {
+        cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
+        response = NextResponse.next({ request: req });
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      },
+    },
+  });
 
-  const loginUrl = new URL("/login", req.url);
-  return NextResponse.redirect(loginUrl);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) return response;
+  return unauthorized(req, pathname);
 }
 
 export const config = {

@@ -10,16 +10,19 @@ import {
 } from "@/lib/insights";
 import { ChartCard } from "@/components/charts/ChartCard";
 import { Card } from "@/components/ui/Card";
+import { PageShell } from "@/components/layout/PageShell";
 import { TrendChart } from "@/components/charts/TrendChart";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { ExplanationPanel } from "@/components/ui/ExplanationPanel";
 import { MetricGauge } from "@/components/ui/MetricGauge";
 import { SleepDetailSection } from "@/components/health/SleepDetailSection";
+import { WeightHistoryCard } from "@/components/health/WeightHistoryCard";
 import { HealthTabs } from "@/components/health/HealthTabs";
 import { formatDate, readinessVerdictLabel } from "@/lib/format";
 import { AlertTriangle, TrendingDown, TrendingUp } from "lucide-react";
 
-export default async function HealthPage() {
+export default async function HealthPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const params = await searchParams;
   const daily = await getDailyMetrics();
   const trends = await getTrainingTrends();
   const injuryRisk = await getInjuryRisk();
@@ -32,10 +35,6 @@ export default async function HealthPage() {
     sleepHours: r.sleepDurationMin ? +(r.sleepDurationMin / 60).toFixed(1) : null,
     sleepDebtHours: r.sleepDebtMin !== null ? +(r.sleepDebtMin / 60).toFixed(1) : null,
   }));
-
-  const weightData = rows
-    .filter((r) => r.weight !== null)
-    .map((r) => ({ date: r.date, weight: r.weight }));
 
   const injuryData = injuryRisk.trend_14d.map((d) => ({ date: d.date, index: d.index }));
 
@@ -61,14 +60,9 @@ export default async function HealthPage() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <header className="border-b border-border px-8 py-5">
-        <h1 className="text-xl font-semibold">Gesundheit & Regeneration</h1>
-        <p className="text-sm text-muted mt-0.5">Vertiefte Regenerationsdaten — mit Basiswert-Vergleich und Frühwarnsignalen.</p>
-      </header>
-
-      <div className="p-8">
+    <PageShell title="Gesundheit & Regeneration" subtitle="Vertiefte Regenerationsdaten — mit Basiswert-Vergleich und Frühwarnsignalen.">
         <HealthTabs
+          initialTab={params.tab === "krankheiten" ? "Krankheiten" : "Übersicht"}
           overview={
             <div className="space-y-6">
         <Card title="Trainingsbereitschaft" subtitle="Kombiniert HFV, Ruhepuls, Schlaf und Belastung">
@@ -211,15 +205,7 @@ export default async function HealthPage() {
             <TrendChart data={acwrData} lines={[{ key: "acwr", color: "var(--accent)", name: "ACWR" }]} referenceLine={1} />
           </Card>
 
-          <Card title="Gewicht" subtitle={weightData.length > 0 ? undefined : "Noch keine Gewichtsdaten in diesem Zeitraum"}>
-            {weightData.length > 0 ? (
-              <TrendChart data={weightData} lines={[{ key: "weight", color: "var(--accent)", name: "Gewicht (kg)" }]} />
-            ) : (
-              <p className="text-sm text-muted py-8 text-center">
-                Keine Gewichtsmessung in den letzten 14 Tagen. Sobald neue Werte über einen verbundenen Anbieter erfasst werden, erscheinen sie hier automatisch.
-              </p>
-            )}
-          </Card>
+          <WeightHistoryCard />
         </section>
 
         <section>
@@ -247,7 +233,6 @@ export default async function HealthPage() {
             </div>
           }
         />
-      </div>
-    </div>
+    </PageShell>
   );
 }

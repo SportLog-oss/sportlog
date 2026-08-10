@@ -7,9 +7,11 @@ import type { ReminderPreferences, ReminderType } from "@/lib/types";
 
 const TYPE_LABELS: Record<ReminderType, string> = {
   "log-training": "Training protokollieren",
+  "log-pain": "Schmerzen erfassen",
   "update-illness": "Krankheitsstatus aktualisieren",
   "log-mental-health": "Mentaler Check-in",
   "daily-checkin": "Allgemeiner Tagescheck",
+  "new-activity": "Neue Aktivität synchronisiert",
 };
 
 export function ReminderSettingsCard() {

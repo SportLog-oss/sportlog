@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getStrengthSessions, saveStrengthSessions } from "@/lib/data/store";
 import type { StrengthSession } from "@/lib/types";
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   const sessions = await getStrengthSessions();
 
   const entry: StrengthSession = {
-    id: `strength-${Date.now()}`,
+    id: randomUUID(),
     date: body.date,
     title: body.title ?? "Krafttraining",
     activityId: body.activityId,

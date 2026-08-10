@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getChatSessions, saveChatSessions, deleteChatMessages } from "@/lib/data/store";
 import type { ChatSession } from "@/lib/types";
@@ -13,7 +14,7 @@ export async function POST() {
   const sessions = await getChatSessions();
   const now = new Date().toISOString();
   const newSession: ChatSession = {
-    id: `chat-${Date.now()}`,
+    id: randomUUID(),
     title: "Neuer Chat",
     createdAt: now,
     updatedAt: now,

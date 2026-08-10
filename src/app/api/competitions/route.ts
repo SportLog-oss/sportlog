@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getCompetitions, saveCompetitions } from "@/lib/data/store";
 import type { CompetitionResult } from "@/lib/types";
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   const hasResult = !!body.result;
 
   const entry: CompetitionResult = {
-    id: `comp-${Date.now()}`,
+    id: randomUUID(),
     status: body.status ?? (hasResult ? "completed" : "planned"),
     name: body.name,
     date: body.date,

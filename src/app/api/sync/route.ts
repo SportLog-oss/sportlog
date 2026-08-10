@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveCacheEntry } from "@/lib/data/store";
+import { finishAthleteDataSync, saveCacheEntry, startAthleteDataSync } from "@/lib/data/store";
 
 const ALLOWED_KEYS = [
   "daily-metrics",
@@ -27,15 +27,22 @@ export async function POST(req: NextRequest) {
 
   const saved: string[] = [];
   const skipped: string[] = [];
+  const failed: { key: string; error: string }[] = [];
+  await startAthleteDataSync("external_push");
 
   for (const key of ALLOWED_KEYS) {
     if (entries[key] !== undefined && entries[key] !== null) {
-      await saveCacheEntry(key, entries[key]);
-      saved.push(key);
+      try {
+        await saveCacheEntry(key, entries[key]);
+        saved.push(key);
+      } catch (error) {
+        failed.push({ key, error: error instanceof Error ? error.message : String(error) });
+      }
     } else {
       skipped.push(key);
     }
   }
 
-  return NextResponse.json({ ok: true, saved, skipped });
+  await finishAthleteDataSync(saved, failed);
+  return NextResponse.json({ ok: failed.length === 0, saved, skipped, failed }, { status: failed.length ? 500 : 200 });
 }

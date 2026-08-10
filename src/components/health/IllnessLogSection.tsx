@@ -5,6 +5,18 @@ import { Card } from "@/components/ui/Card";
 import { Plus, X, Stethoscope, Trash2 } from "lucide-react";
 import type { IllnessLogEntry } from "@/lib/types";
 
+// Inclusive day count (a same-day illness counts as 1 day, not 0) — dates are plain
+// YYYY-MM-DD strings with no time component, so this is a simple calendar-day diff.
+function durationDays(startDate: string, endDate: string | null): number {
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : new Date();
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
+}
+
+function formatDays(days: number): string {
+  return `${days} ${days === 1 ? "Tag" : "Tage"}`;
+}
+
 const emptyForm = {
   startDate: new Date().toISOString().slice(0, 10),
   endDate: "",
@@ -109,7 +121,9 @@ export function IllnessLogSection() {
               <div key={e.id} className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
                 <Stethoscope size={15} className="text-warning shrink-0 mt-0.5" />
                 <div className="flex-1 text-sm">
-                  <p className="font-medium">Aktiv seit {e.startDate}</p>
+                  <p className="font-medium">
+                    Aktiv seit {e.startDate} &middot; {formatDays(durationDays(e.startDate, null))}
+                  </p>
                   <p className="text-muted text-xs mt-0.5">{e.symptoms.join(", ") || "keine Symptome angegeben"}</p>
                   {e.notes && <p className="text-xs mt-1">{e.notes}</p>}
                 </div>
@@ -125,8 +139,8 @@ export function IllnessLogSection() {
           <div className="space-y-1.5">
             {past.map((e) => (
               <div key={e.id} className="flex items-center gap-3 text-sm text-muted">
-                <span className="w-32 shrink-0">
-                  {e.startDate} – {e.endDate}
+                <span className="w-40 shrink-0">
+                  {e.startDate} – {e.endDate} ({formatDays(durationDays(e.startDate, e.endDate))})
                 </span>
                 <span className="flex-1">{e.symptoms.join(", ") || "–"}</span>
                 <button onClick={() => remove(e.id)} className="hover:text-negative">
