@@ -24,7 +24,13 @@ export function scorePlanningMatch(session: PlannedSession, workout: Workout): P
   const distance = dateDistance(session.scheduledDate, workoutDate);
   let score = distance === 0 ? 0.55 : distance === 1 ? 0.25 : 0;
   const reasons = [distance === 0 ? "Gleicher Trainingstag" : distance === 1 ? "Benachbarter Trainingstag" : "Abweichender Trainingstag"];
-  if (sportGroup(session.sportType) === sportGroup(workout.workoutType)) { score += 0.3; reasons.push("Passende Sportart"); }
+  const plannedSport = sportGroup(session.sportType);
+  const actualSport = sportGroup(workout.workoutType);
+  if (plannedSport !== actualSport) {
+    return { score: 0, reasons: [...reasons, "Abweichende Sportart"] };
+  }
+  score += 0.3;
+  reasons.push("Passende Sportart");
   if (session.plannedDurationMin && workout.durationSeconds) {
     const difference = Math.abs(session.plannedDurationMin - workout.durationSeconds / 60) / session.plannedDurationMin;
     if (difference <= 0.15) { score += 0.15; reasons.push("Sehr ähnliche Dauer"); }

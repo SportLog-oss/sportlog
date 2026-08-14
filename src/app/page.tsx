@@ -12,7 +12,8 @@ export default async function TodayPage() {
   const DecisionIcon = today.decision.status === "clarify" ? AlertTriangle : today.decision.status === "planned" ? CheckCircle2 : CircleHelp;
   const recovery = today.stats.recoveryPct ?? 0;
   const sleep = today.stats.sleepPerformance ?? 0;
-  const load = today.comparison?.rpe ?? Math.min(10, today.stats.strain / 2.1);
+  const reflectedLoads = today.comparisons.flatMap((comparison) => comparison.rpe === null ? [] : [comparison.rpe]);
+  const load = reflectedLoads.length > 0 ? Math.max(...reflectedLoads) : Math.min(10, today.stats.strain / 2.1);
   const healthIssue = today.reasons.some((reason) => reason.label === "Gesundheit");
   const decisionLabel = today.displayMode === "morning" ? "Tagesentscheidung" : today.displayMode === "post_training" ? "Trainingsergebnis" : "Tagesabschluss";
   const focusLabel = today.displayMode === "morning" ? "Fokus heute" : today.displayMode === "post_training" ? "Nach dem Training" : "Für heute Abend";

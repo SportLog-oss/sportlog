@@ -9,6 +9,19 @@ import { adaptationFor } from "@/lib/trainingAdaptation";
 export const SPORTLOG_TIME_ZONE = "Europe/Berlin";
 
 export type TodayReason = { label: string; detail: string; tone: "positive" | "neutral" | "warning" | "critical" };
+export type TodayTrainingComparison = {
+  plannedSessionId: string;
+  plannedTitle: string;
+  plannedSportType: string;
+  plannedMinutes: number | null;
+  activityId: number | null;
+  activityTitle: string | null;
+  actualMinutes: number | null;
+  deviationMinutes: number | null;
+  rpe: number | null;
+  feeling: string | null;
+  status: "planned" | "matched";
+};
 export type TodayResponse = {
   date: string;
   fetchedAt: string;
@@ -24,15 +37,7 @@ export type TodayResponse = {
   todayActivities: Activity[];
   plannedSessions: PlannedSession[];
   nextPlannedSession: PlannedSession | null;
-  comparison: {
-    activityId: number;
-    title: string;
-    plannedMinutes: number | null;
-    actualMinutes: number;
-    deviationMinutes: number;
-    rpe: number | null;
-    feeling: string | null;
-  } | null;
+  comparisons: TodayTrainingComparison[];
   journey: {
     stage: "plan" | "train" | "match" | "reflect" | "adapt" | "complete";
     title: string;
@@ -95,28 +100,38 @@ export async function buildTodayResponse(): Promise<TodayResponse> {
   const primaryPlan = plannedSessions[0];
   const todaySessionIds = new Set(plannedSessions.map((session) => session.id));
   const todayMatches = planningMatches.filter((match) => todaySessionIds.has(match.plannedSessionId));
-  const confirmedMatch = todayMatches.find((match) => match.status === "confirmed");
+  const confirmedMatches = todayMatches.filter((match) => match.status === "confirmed");
   const suggestedMatch = todayMatches.find((match) => match.status === "suggested");
-  const adaptation = confirmedMatch ? adaptationFor(confirmedMatch) : null;
-  const matchedActivity = confirmedMatch?.workout.externalId ? todayActivities.find((activity) => String(activity.activityId) === confirmedMatch.workout.externalId) : null;
-  const actualMinutes = matchedActivity ? Math.round(matchedActivity.durationInSeconds / 60) : confirmedMatch?.workout.durationSeconds ? Math.round(confirmedMatch.workout.durationSeconds / 60) : null;
   const feelingLabels = { great: "Sehr gut", good: "Gut", okay: "Okay", hard: "Schwer", bad: "Schlecht" } as const;
-  const comparison = confirmedMatch && primaryPlan && actualMinutes !== null ? {
-    activityId: Number(confirmedMatch.workout.externalId),
-    title: confirmedMatch.workout.title,
-    plannedMinutes: primaryPlan.plannedDurationMin,
-    actualMinutes,
-    deviationMinutes: actualMinutes - (primaryPlan.plannedDurationMin ?? actualMinutes),
-    rpe: confirmedMatch.reflection?.perceivedExertion ?? confirmedMatch.workout.importedRpe,
-    feeling: confirmedMatch.reflection?.feeling ? feelingLabels[confirmedMatch.reflection.feeling] : null,
-  } : null;
+  const comparisons: TodayTrainingComparison[] = plannedSessions.map((plan) => {
+    const match = confirmedMatches.find((item) => item.plannedSessionId === plan.id);
+    const activity = match?.workout.externalId ? todayActivities.find((item) => String(item.activityId) === match.workout.externalId) : null;
+    const actualMinutes = activity ? Math.round(activity.durationInSeconds / 60) : match?.workout.durationSeconds ? Math.round(match.workout.durationSeconds / 60) : null;
+    const activityId = match?.workout.externalId ? Number(match.workout.externalId) : null;
+    return {
+      plannedSessionId: plan.id,
+      plannedTitle: plan.title,
+      plannedSportType: plan.sportType,
+      plannedMinutes: plan.plannedDurationMin,
+      activityId: activityId !== null && Number.isFinite(activityId) ? activityId : null,
+      activityTitle: match?.workout.title ?? null,
+      actualMinutes,
+      deviationMinutes: actualMinutes === null ? null : actualMinutes - (plan.plannedDurationMin ?? actualMinutes),
+      rpe: match?.reflection?.perceivedExertion ?? match?.workout.importedRpe ?? null,
+      feeling: match?.reflection?.feeling ? feelingLabels[match.reflection.feeling] : null,
+      status: match && actualMinutes !== null ? "matched" : "planned",
+    };
+  });
+  const allPlannedSessionsMatched = plannedSessions.length > 0 && comparisons.every((item) => item.status === "matched");
+  const unreflectedMatch = confirmedMatches.find((match) => !match.reflection);
+  const adaptation = confirmedMatches.map(adaptationFor).find(Boolean) ?? null;
   const journey: TodayResponse["journey"] = !primaryPlan
     ? { stage: "plan", title: "Training für heute planen", detail: "Lege zuerst fest, was die heutige Einheit bewirken soll.", actionLabel: "Einheit planen", href: "/planung", currentStep: 0 }
     : todayActivities.length === 0
       ? { stage: "train", title: primaryPlan.title, detail: primaryPlan.plannedDurationMin ? `${primaryPlan.plannedDurationMin} Minuten sind geplant. Danach übernimmt SportLog deine Garmin-Daten.` : "Die Einheit ist geplant. Danach übernimmt SportLog deine Garmin-Daten.", actionLabel: "Heutigen Plan ansehen", href: "/planung", currentStep: 1 }
-      : !confirmedMatch
+      : !allPlannedSessionsMatched
         ? { stage: "match", title: suggestedMatch ? "Aktivität dem Plan zuordnen" : "Plan und Aktivität abgleichen", detail: suggestedMatch ? "SportLog hat eine passende Garmin-Aktivität gefunden. Bitte bestätige die Zuordnung." : "Die heutige Aktivität wurde erkannt, aber noch keiner Plan-Einheit sicher zugeordnet.", actionLabel: "Zuordnung prüfen", href: "/planung", currentStep: 2 }
-        : !confirmedMatch.reflection
+        : unreflectedMatch
           ? { stage: "reflect", title: "Nachbereitung ergänzen", detail: "Garmin-Bewertung ist verfügbar. Ergänze nur Beschwerden, Muskelkater oder eine kurze Notiz.", actionLabel: "Training reflektieren", href: "/planung", currentStep: 3 }
           : adaptation
             ? { stage: "adapt", title: adaptation.title, detail: `${adaptation.reason} Prüfe den Vorschlag für die nächste Einheit.`, actionLabel: "Anpassung prüfen", href: "/planung", currentStep: 4 }
@@ -141,6 +156,6 @@ export async function buildTodayResponse(): Promise<TodayResponse> {
       ...(activeIllness ? [{ id: "health", label: "Krankheitsstatus prüfen", href: "/health" }] : []),
     ].slice(0, 3),
     stats: { recoveryPct, strain: computeStrain(lastWithLoad?.dailyLoad ?? null), sleepPerformance },
-    warnings: generateWarnings(rows, anomalies.anomalies, injuryRisk).slice(0, 3), todayActivities, plannedSessions, nextPlannedSession, comparison, journey,
+    warnings: generateWarnings(rows, anomalies.anomalies, injuryRisk).slice(0, 3), todayActivities, plannedSessions, nextPlannedSession, comparisons, journey,
   };
 }
