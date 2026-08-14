@@ -20,8 +20,10 @@ where type = 'goal'
   and category = 'leistung'
   and lower(coalesce(unit, '')) in ('sekunde', 'sekunden', 's')
   and (
-    lower(coalesce(metric_label, '')) ~ '(^|[^0-9])2\s*(km|000\s*m)($|[^a-z])'
-    or lower(coalesce(title, '')) ~ '(^|[^0-9])2\s*(km|000\s*m)($|[^a-z])'
+    lower(replace(coalesce(metric_label, ''), ' ', '')) like '%2km%'
+    or lower(replace(coalesce(metric_label, ''), ' ', '')) like '%2000m%'
+    or lower(replace(coalesce(title, ''), ' ', '')) like '%2km%'
+    or lower(replace(coalesce(title, ''), ' ', '')) like '%2000m%'
   );
 
 commit;
