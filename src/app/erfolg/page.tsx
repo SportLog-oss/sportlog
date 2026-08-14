@@ -5,9 +5,8 @@ import clsx from "clsx";
 import { PageShell } from "@/components/layout/PageShell";
 import { GoalsSection } from "@/components/goals/GoalsSection";
 import { CompetitionsSection } from "@/components/competitions/CompetitionsSection";
-import { PersonalBestsSection } from "@/components/erfolg/PersonalBestsSection";
-import { BenchmarksSection } from "@/components/training/BenchmarksSection";
 import { PerformanceCurvesSection } from "@/components/erfolg/PerformanceCurvesSection";
+import { UnifiedPerformanceBestsSection } from "@/components/erfolg/UnifiedPerformanceBestsSection";
 
 const TABS = ["Ziele", "Wettkämpfe", "Bestleistungen"] as const;
 type Tab = (typeof TABS)[number];
@@ -34,7 +33,7 @@ export default function ErfolgPage() {
 
       {tab === "Ziele" && <GoalsSection />}
       {tab === "Wettkämpfe" && <CompetitionsSection />}
-      {tab === "Bestleistungen" && <div className="space-y-5"><PersonalBestsSection /><BenchmarksSection /><PerformanceCurvesSection /></div>}
+      {tab === "Bestleistungen" && <div className="space-y-5"><UnifiedPerformanceBestsSection /><PerformanceCurvesSection /></div>}
     </PageShell>
   );
 }
