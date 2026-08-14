@@ -244,6 +244,9 @@ export type Goal = {
   targetValue: number | null;
   unit: string;
   currentValue: number | null;
+  performanceKind: string | null;
+  currentValueSource?: "performance_best" | "manual" | null;
+  linkedPerformanceDate?: string | null;
   notes: string;
   achieved: boolean;
   createdAt: string;

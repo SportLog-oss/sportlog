@@ -14,6 +14,18 @@ const CATEGORY_LABELS: Record<Goal["category"], string> = {
   sonstiges: "Sonstiges",
 };
 
+const PERFORMANCE_KINDS = [
+  ["", "Keine automatische Verknüpfung"],
+  ["rowing_350m", "Ruderergometer · 350 m"],
+  ["rowing_500m", "Ruderergometer · 500 m"],
+  ["rowing_1000m", "Ruderergometer · 1000 m"],
+  ["rowing_1500m", "Ruderergometer · 1500 m"],
+  ["rowing_2000m", "Ruderergometer · 2000 m"],
+  ["rowing_5000m", "Ruderergometer · 5000 m"],
+  ["rowing_6000m", "Ruderergometer · 6000 m"],
+  ["rowing_30min", "Ruderergometer · beste 30 Minuten"],
+] as const;
+
 const emptyForm = {
   title: "",
   category: "leistung" as Goal["category"],
@@ -22,6 +34,7 @@ const emptyForm = {
   targetValue: "",
   unit: "",
   currentValue: "",
+  performanceKind: "",
   notes: "",
 };
 
@@ -43,6 +56,7 @@ function goalToForm(goal: Goal) {
     targetValue: goal.targetValue !== null ? String(goal.targetValue) : "",
     unit: goal.unit,
     currentValue: goal.currentValue !== null ? String(goal.currentValue) : "",
+    performanceKind: goal.performanceKind ?? "",
     notes: goal.notes,
   };
 }
@@ -83,6 +97,7 @@ export function GoalsSection() {
       ...form,
       targetValue: form.targetValue ? Number(form.targetValue) : null,
       currentValue: form.currentValue ? Number(form.currentValue) : null,
+      performanceKind: form.performanceKind || null,
     };
 
     if (editingId) {
@@ -156,6 +171,13 @@ export function GoalsSection() {
             {goal.metricLabel}: <span className="font-medium">{goal.currentValue ?? "–"}</span> / {goal.targetValue} {goal.unit}
           </p>
         )}
+        {goal.performanceKind && (
+          <p className="text-xs text-accent mt-1">
+            {goal.currentValueSource === "performance_best"
+              ? `Automatisch aus deiner Bestleistung${goal.linkedPerformanceDate ? ` vom ${formatDate(goal.linkedPerformanceDate)}` : ""}`
+              : "Wird automatisch aktualisiert, sobald eine exakt passende Bestleistung vorliegt."}
+          </p>
+        )}
         {progress !== null && (
           <div className="mt-2 h-2 rounded-full bg-surface-raised overflow-hidden">
             <div className="h-full bg-accent rounded-full" style={{ width: `${(progress * 100).toFixed(0)}%` }} />
@@ -222,13 +244,32 @@ export function GoalsSection() {
               value={form.targetValue}
               onChange={(e) => setForm({ ...form, targetValue: e.target.value })}
             />
-            <input
-              placeholder="Aktueller Wert (optional)"
-              type="number"
+            <select
               className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
-              value={form.currentValue}
-              onChange={(e) => setForm({ ...form, currentValue: e.target.value })}
-            />
+              value={form.performanceKind}
+              onChange={(e) => setForm({
+                ...form,
+                performanceKind: e.target.value,
+                currentValue: e.target.value ? "" : form.currentValue,
+              })}
+            >
+              {PERFORMANCE_KINDS.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            {form.performanceKind ? (
+              <p className="text-xs text-muted self-center">
+                Der aktuelle Wert kommt automatisch aus der exakt passenden Bestleistung.
+              </p>
+            ) : (
+              <input
+                placeholder="Aktueller Wert (optional)"
+                type="number"
+                className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm"
+                value={form.currentValue}
+                onChange={(e) => setForm({ ...form, currentValue: e.target.value })}
+              />
+            )}
             <textarea
               placeholder="Notizen"
               className="bg-surface-raised border border-border rounded-lg px-3 py-2 text-sm md:col-span-2"
