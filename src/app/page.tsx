@@ -9,15 +9,19 @@ import { TodayTrainingOverviewCard } from "@/components/dashboard/TodayTrainingO
 
 export default async function TodayPage() {
   const today = await buildTodayResponse();
-  const DecisionIcon = today.decision.status === "clarify" ? AlertTriangle : today.decision.status === "planned" ? CheckCircle2 : CircleHelp;
+  const matchedSessionCount = today.comparisons.filter((comparison) => comparison.status === "matched").length;
+  const partialTrainingDay = matchedSessionCount > 0 && matchedSessionCount < today.comparisons.length;
+  const DecisionIcon = partialTrainingDay ? Activity : today.decision.status === "clarify" ? AlertTriangle : today.decision.status === "planned" ? CheckCircle2 : CircleHelp;
   const recovery = today.stats.recoveryPct ?? 0;
   const sleep = today.stats.sleepPerformance ?? 0;
   const reflectedLoads = today.comparisons.flatMap((comparison) => comparison.rpe === null ? [] : [comparison.rpe]);
   const load = reflectedLoads.length > 0 ? Math.max(...reflectedLoads) : Math.min(10, today.stats.strain / 2.1);
   const healthIssue = today.reasons.some((reason) => reason.label === "Gesundheit");
-  const decisionLabel = today.displayMode === "morning" ? "Tagesentscheidung" : today.displayMode === "post_training" ? "Trainingsergebnis" : "Tagesabschluss";
-  const focusLabel = today.displayMode === "morning" ? "Fokus heute" : today.displayMode === "post_training" ? "Nach dem Training" : "Für heute Abend";
-  const focus = healthIssue ? today.focus : today.displayMode === "evening" ? "Für heute bist du fertig. Jetzt zählt Erholung – morgen bewertet SportLog deine neuen Signale erneut." : today.displayMode === "post_training" ? "Trainingsergebnis kurz prüfen und nur relevante Beschwerden oder Abweichungen ergänzen." : today.focus;
+  const decisionLabel = partialTrainingDay ? "Tagesfortschritt" : today.displayMode === "morning" ? "Tagesentscheidung" : today.displayMode === "post_training" ? "Trainingsergebnis" : "Tagesabschluss";
+  const decisionTitle = partialTrainingDay ? `${matchedSessionCount} von ${today.comparisons.length} Einheiten eingeordnet` : today.decision.title;
+  const decisionSummary = partialTrainingDay ? `Für ${today.comparisons.length - matchedSessionCount} Einheit${today.comparisons.length - matchedSessionCount === 1 ? "" : "en"} fehlt noch ein passendes Ergebnis oder die Zuordnung. Der Trainingstag bleibt bis dahin offen.` : today.decision.summary;
+  const focusLabel = partialTrainingDay ? "Nächster Schritt" : today.displayMode === "morning" ? "Fokus heute" : today.displayMode === "post_training" ? "Nach dem Training" : "Für heute Abend";
+  const focus = healthIssue ? today.focus : partialTrainingDay ? "Offene Einheit absolvieren oder das passende Garmin-Training im Wochenplan zuordnen." : today.displayMode === "evening" ? "Für heute bist du fertig. Jetzt zählt Erholung – morgen bewertet SportLog deine neuen Signale erneut." : today.displayMode === "post_training" ? "Trainingsergebnis kurz prüfen und nur relevante Beschwerden oder Abweichungen ergänzen." : today.focus;
   const nextDate = today.nextPlannedSession ? new Date(`${today.nextPlannedSession.scheduledDate}T12:00:00`).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }) : null;
   const tomorrow = new Date(`${today.date}T12:00:00Z`);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
@@ -42,8 +46,8 @@ export default async function TodayPage() {
                   {today.dataQuality.label}{today.dataQuality.ageHours !== null ? ` · ${today.dataQuality.ageHours} h` : ""}
                 </span>
               </div>
-              <h2 className="mt-3 text-xl font-semibold">{today.decision.title}</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-foreground/85">{today.decision.summary}</p>
+              <h2 className="mt-3 text-xl font-semibold">{decisionTitle}</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-foreground/85">{decisionSummary}</p>
             </div>
           </div>
         </section>
