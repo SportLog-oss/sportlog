@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ActivityHrZones } from "@/components/charts/ActivityHrZones";
 import { SyncedMultiChart } from "@/components/charts/SyncedMultiChart";
@@ -24,24 +25,36 @@ export function TrainingDetailTabs({ activity }: { activity: Activity }) {
   const [tab, setTab] = useState<Tab>("Übersicht");
   const [details, setDetails] = useState<ActivityDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const reloadDetails = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setReloadKey((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/training/${activity.activityId}/details`, { signal: controller.signal })
+    fetch(`/api/training/${activity.activityId}/details${reloadKey ? "?refresh=1" : ""}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error(`Details konnten nicht geladen werden (${response.status})`);
         return response.json() as Promise<ActivityDetails>;
       })
-      .then(setDetails)
+      .then((value) => {
+        setDetails(value);
+        if (!value.hasDetails) setError("Garmin/AthleteData hat für diese Einheit keine Detaildaten geliefert.");
+      })
       .catch((error) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         setDetails(null);
+        setError(error instanceof Error ? error.message : "Die Detaildaten konnten nicht geladen werden.");
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [activity.activityId]);
+  }, [activity.activityId, reloadKey]);
 
-  const series = details?.series ?? [];
+  const series = Array.isArray(details?.series) ? details.series : [];
   const chartMetrics = CHART_METRICS.filter((metric) => series.some((point) => point[metric] !== null));
   const dateStr = new Date(activity.startTimeInSeconds * 1000).toISOString().slice(0, 10);
   const isStrength = activity.activityType === "STRENGTH_TRAINING";
@@ -113,7 +126,7 @@ export function TrainingDetailTabs({ activity }: { activity: Activity }) {
 
       {tab === "Diagramme" && (chartMetrics.length ? (
         <SyncedMultiChart series={series} metrics={chartMetrics} />
-      ) : <p className="text-sm text-muted text-center py-8">{loading ? "Zeitreihen werden geladen …" : "Keine zeitbasierten Messreihen verfügbar."}</p>)}
+      ) : <div className="flex flex-col items-center rounded-2xl border border-dashed border-border px-5 py-10 text-center">{loading ? <><RefreshCw size={22} className="animate-spin text-accent" /><p className="mt-3 text-sm text-muted">Zeitreihen werden geladen …</p></> : <><AlertTriangle size={22} className="text-warning" /><p className="mt-3 font-semibold">Keine Diagrammdaten verfügbar</p><p className="mt-1 max-w-lg text-sm text-muted">{error ?? "Für diese Einheit wurden keine zeitbasierten Messreihen geliefert. Übersicht und Runden können trotzdem vorhanden sein."}</p><button type="button" onClick={reloadDetails} className="mt-4 flex items-center gap-2 rounded-xl border border-accent/40 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent-soft"><RefreshCw size={15} /> Erneut laden</button></>}</div>)}
 
       {tab === "Runden" && (details?.laps.length ? <LapsTable laps={details.laps} /> : <p className="text-sm text-muted text-center py-8">{loading ? "Runden werden geladen …" : "Keine Runden oder Splits verfügbar."}</p>)}
       {tab === "Reflexion" && (

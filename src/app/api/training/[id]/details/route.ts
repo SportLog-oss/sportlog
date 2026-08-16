@@ -13,10 +13,17 @@ import { getActivities, getCachedActivityDetails, saveCachedActivityDetails } fr
 import { parseLaps } from "@/lib/laps";
 import type { ActivityDetails } from "@/lib/types";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+function isUsableCachedDetails(value: unknown): value is ActivityDetails {
+  if (!value || typeof value !== "object") return false;
+  const details = value as Partial<ActivityDetails>;
+  return Array.isArray(details.series) && Array.isArray(details.laps) && Array.isArray(details.statistics) && Array.isArray(details.overviewMetrics);
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const forceRefresh = new URL(req.url).searchParams.get("refresh") === "1";
   const cached = await getCachedActivityDetails(id).catch(() => null);
-  if (cached && Date.now() - new Date(cached.fetchedAt).getTime() < 5 * 60 * 1000) {
+  if (!forceRefresh && cached && isUsableCachedDetails(cached.details) && Date.now() - new Date(cached.fetchedAt).getTime() < 5 * 60 * 1000) {
     return NextResponse.json(cached.details);
   }
 
@@ -65,7 +72,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     series: computeActivitySeries(records, sport),
   };
 
-  if (!file && !detail && cached) return NextResponse.json(cached.details);
+  if (!file && !detail && cached && isUsableCachedDetails(cached.details)) return NextResponse.json(cached.details);
   await saveCachedActivityDetails(id, response).catch(() => undefined);
   return NextResponse.json(response);
 }
