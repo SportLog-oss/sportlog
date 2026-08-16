@@ -50,6 +50,7 @@ import {
   rowToChatMessage,
   rowToChatSession,
   rowToCompetition,
+  rowToCompetitionRace,
   rowToGoal,
   rowToIllnessLogEntry,
   rowToMentalHealthCheckin,
@@ -269,7 +270,28 @@ export async function getCompetitions(): Promise<CompetitionResult[]> {
   const supabase = await getSupabaseForRequest();
   const { data, error } = await supabase.from("goals_and_races").select("*").eq("type", "race").order("created_at");
   if (error) throw error;
-  return (data ?? []).map(rowToCompetition);
+  const competitions = (data ?? []).map(rowToCompetition);
+  if (competitions.length === 0) return competitions;
+
+  const { data: raceRows, error: raceError } = await supabase
+    .from("competition_races")
+    .select("*")
+    .in("competition_id", competitions.map((competition) => competition.id))
+    .order("scheduled_at", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+  if (raceError) throw raceError;
+
+  const racesByCompetition = new Map<string, ReturnType<typeof rowToCompetitionRace>[]>();
+  for (const row of raceRows ?? []) {
+    const race = rowToCompetitionRace(row);
+    const races = racesByCompetition.get(race.competitionId) ?? [];
+    races.push(race);
+    racesByCompetition.set(race.competitionId, races);
+  }
+  return competitions.map((competition) => ({
+    ...competition,
+    races: racesByCompetition.get(competition.id) ?? [],
+  }));
 }
 
 export async function saveCompetitions(competitions: CompetitionResult[]) {

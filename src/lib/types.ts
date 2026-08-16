@@ -233,6 +233,35 @@ export type CompetitionResult = {
   notes: string;
   analysis: string | null;
   createdAt: string;
+  races: CompetitionRace[];
+};
+
+export type CompetitionRaceStatus = "planned" | "completed" | "dns" | "dnf" | "dsq" | "cancelled";
+export type CompetitionRaceType = "time_trial" | "heat" | "repechage" | "quarterfinal" | "semifinal" | "final" | "other";
+
+export type CompetitionRace = {
+  id: string;
+  competitionId: string;
+  raceType: CompetitionRaceType;
+  label: string;
+  scheduledAt: string | null;
+  distanceMeters: number;
+  boatClass: string;
+  crew: string;
+  status: CompetitionRaceStatus;
+  officialTimeSeconds: number | null;
+  placement: number | null;
+  fieldSize: number | null;
+  resultSource: string;
+  resultSourceUrl: string;
+  legacyResultText: string;
+  splits: { split: string; time: string }[];
+  avgHeartRate: number | null;
+  weather: string;
+  wind: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Goal = {

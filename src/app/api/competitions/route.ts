@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     notes: body.notes ?? "",
     analysis: null,
     createdAt: new Date().toISOString().slice(0, 10),
+    races: [],
   };
 
   competitions.unshift(entry);

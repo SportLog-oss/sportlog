@@ -10,6 +10,7 @@ import type {
   Benchmark,
   BenchmarkEntry,
   ChatSession,
+  CompetitionRace,
   CompetitionResult,
   Goal,
   IllnessLogEntry,
@@ -107,6 +108,61 @@ export function rowToCompetition(row: Record<string, unknown>): CompetitionResul
     notes: (row.notes as string) ?? "",
     analysis: (row.analysis as string | null) ?? null,
     createdAt: row.created_at as string,
+    races: [],
+  };
+}
+
+export function competitionRaceToRow(race: CompetitionRace) {
+  return {
+    id: race.id,
+    competition_id: race.competitionId,
+    race_type: race.raceType,
+    label: race.label,
+    scheduled_at: race.scheduledAt,
+    distance_meters: race.distanceMeters,
+    boat_class: race.boatClass,
+    crew: race.crew,
+    status: race.status,
+    official_time_seconds: race.officialTimeSeconds,
+    placement: race.placement,
+    field_size: race.fieldSize,
+    result_source: race.resultSource,
+    result_source_url: race.resultSourceUrl,
+    legacy_result_text: race.legacyResultText,
+    splits: race.splits,
+    avg_heart_rate: race.avgHeartRate,
+    weather: race.weather,
+    wind: race.wind,
+    notes: race.notes,
+    created_at: race.createdAt,
+    updated_at: race.updatedAt,
+  };
+}
+
+export function rowToCompetitionRace(row: Record<string, unknown>): CompetitionRace {
+  return {
+    id: row.id as string,
+    competitionId: row.competition_id as string,
+    raceType: row.race_type as CompetitionRace["raceType"],
+    label: (row.label as string) ?? "",
+    scheduledAt: (row.scheduled_at as string | null) ?? null,
+    distanceMeters: Number(row.distance_meters ?? 2000),
+    boatClass: (row.boat_class as string) ?? "",
+    crew: (row.crew as string) ?? "",
+    status: row.status as CompetitionRace["status"],
+    officialTimeSeconds: row.official_time_seconds == null ? null : Number(row.official_time_seconds),
+    placement: row.placement == null ? null : Number(row.placement),
+    fieldSize: row.field_size == null ? null : Number(row.field_size),
+    resultSource: (row.result_source as string) ?? "",
+    resultSourceUrl: (row.result_source_url as string) ?? "",
+    legacyResultText: (row.legacy_result_text as string) ?? "",
+    splits: (row.splits as CompetitionRace["splits"]) ?? [],
+    avgHeartRate: row.avg_heart_rate == null ? null : Number(row.avg_heart_rate),
+    weather: (row.weather as string) ?? "",
+    wind: (row.wind as string) ?? "",
+    notes: (row.notes as string) ?? "",
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
   };
 }
 
