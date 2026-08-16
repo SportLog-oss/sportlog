@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import type { CompetitionResult } from "@/lib/types";
+import type { CompetitionRace, CompetitionResult } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import { Plus, Trash2, Sparkles, Trophy, Loader2, CalendarClock, ClipboardCheck, Pencil, X, Watch, Flag, Waves } from "lucide-react";
 
@@ -21,6 +21,59 @@ const emptyResultForm = {
   result: "", placement: "", splitsRaw: "", avgHeartRate: "", weather: "", wind: "", notes: "",
 };
 const emptyEditForm = { ...emptyPlanForm, ...emptyResultForm };
+const emptyRaceForm = {
+  raceType: "heat",
+  label: "",
+  scheduledAt: "",
+  distanceMeters: "2000",
+  boatClass: "",
+  crew: "",
+  status: "planned",
+  officialTime: "",
+  placement: "",
+  fieldSize: "",
+  resultSource: "",
+  resultSourceUrl: "",
+  weather: "",
+  wind: "",
+  notes: "",
+};
+
+const raceTypeLabels: Record<CompetitionRace["raceType"], string> = {
+  time_trial: "Zeitfahren",
+  heat: "Vorlauf",
+  repechage: "Hoffnungslauf",
+  quarterfinal: "Viertelfinale",
+  semifinal: "Halbfinale",
+  final: "Finale",
+  other: "Sonstiges Rennen",
+};
+
+const raceStatusLabels: Record<CompetitionRace["status"], string> = {
+  planned: "Geplant",
+  completed: "Offiziell",
+  dns: "Nicht gestartet",
+  dnf: "Nicht beendet",
+  dsq: "Disqualifiziert",
+  cancelled: "Abgesagt",
+};
+
+function parseOfficialTime(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  if (!normalized) return null;
+  const parts = normalized.split(":").map(Number);
+  if (parts.some(Number.isNaN) || parts.length > 3) return null;
+  if (parts.length === 1) return parts[0] > 0 ? parts[0] : null;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+
+function formatOfficialTime(seconds: number | null) {
+  if (seconds === null) return "–";
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds - minutes * 60;
+  return `${minutes}:${remainder.toFixed(2).padStart(5, "0").replace(".", ",")}`;
+}
 
 function competitionToEditForm(c: CompetitionResult) {
   return {
@@ -53,6 +106,10 @@ export function CompetitionsSection() {
   const [editForm, setEditForm] = useState(emptyEditForm);
   const [resultError, setResultError] = useState("");
   const [savingResult, setSavingResult] = useState(false);
+  const [raceEditorId, setRaceEditorId] = useState<string | null>(null);
+  const [raceForm, setRaceForm] = useState(emptyRaceForm);
+  const [raceError, setRaceError] = useState("");
+  const [savingRace, setSavingRace] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -82,6 +139,109 @@ export function CompetitionsSection() {
     setCompetitions((c) => [created, ...c]);
     setShowForm(false);
     setPlanForm(emptyPlanForm);
+  }
+
+  function openRaceEditor(competition: CompetitionResult) {
+    setRaceEditorId(competition.id);
+    setRaceError("");
+    setRaceForm({
+      ...emptyRaceForm,
+      distanceMeters: String(competition.distanceMeters || 2000),
+      boatClass: competition.boatClass,
+      crew: competition.crew,
+      scheduledAt: competition.date ? `${competition.date}T12:00` : "",
+    });
+  }
+
+  async function saveRace(competitionId: string) {
+    const officialTimeSeconds = parseOfficialTime(raceForm.officialTime);
+    if (raceForm.status === "completed" && officialTimeSeconds === null && !raceForm.placement) {
+      setRaceError("Für ein offizielles Ergebnis brauchst du eine Zeit oder Platzierung.");
+      return;
+    }
+    setSavingRace(true);
+    setRaceError("");
+    try {
+      const response = await fetch(`/api/competitions/${competitionId}/races`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...raceForm,
+          scheduledAt: raceForm.scheduledAt ? new Date(raceForm.scheduledAt).toISOString() : null,
+          distanceMeters: Number(raceForm.distanceMeters) || 2000,
+          officialTimeSeconds,
+          placement: raceForm.placement ? Number(raceForm.placement) : null,
+          fieldSize: raceForm.fieldSize ? Number(raceForm.fieldSize) : null,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Das Rennen konnte nicht gespeichert werden.");
+      setCompetitions((items) => items.map((competition) => competition.id === competitionId
+        ? { ...competition, races: [...competition.races, payload] }
+        : competition));
+      setRaceEditorId(null);
+      setRaceForm(emptyRaceForm);
+    } catch (error) {
+      setRaceError(error instanceof Error ? error.message : "Das Rennen konnte nicht gespeichert werden.");
+    } finally {
+      setSavingRace(false);
+    }
+  }
+
+  async function deleteRace(competitionId: string, raceId: string) {
+    const response = await fetch(`/api/competitions/${competitionId}/races`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ raceId }),
+    });
+    if (!response.ok) return;
+    setCompetitions((items) => items.map((competition) => competition.id === competitionId
+      ? { ...competition, races: competition.races.filter((race) => race.id !== raceId) }
+      : competition));
+  }
+
+  function renderRaces(competition: CompetitionResult) {
+    return (
+      <div className="mt-4 space-y-3 border-t border-border pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-sm font-semibold">Rennen dieser Regatta</p><p className="text-xs text-muted">Jeder Lauf bekommt sein eigenes offizielles Ergebnis.</p></div>
+          <button onClick={() => openRaceEditor(competition)} className="flex items-center gap-1.5 rounded-lg border border-accent/40 px-3 py-2 text-sm font-medium text-accent hover:bg-accent/10"><Plus size={15} /> Rennen hinzufügen</button>
+        </div>
+
+        {competition.races.length === 0 && <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted">Noch kein einzelnes Rennen angelegt.</div>}
+        {competition.races.map((race) => (
+          <div key={race.id} className="rounded-xl border border-border bg-surface-raised/45 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{race.label || raceTypeLabels[race.raceType]}</span><span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted">{raceStatusLabels[race.status]}</span></div>
+                <p className="mt-1 text-xs text-muted">{race.distanceMeters} m · {race.boatClass || "Bootsklasse offen"}{race.scheduledAt ? ` · ${new Date(race.scheduledAt).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" })}` : ""}</p>
+              </div>
+              <button onClick={() => deleteRace(competition.id, race.id)} className="text-muted hover:text-negative" aria-label="Rennen löschen"><Trash2 size={15} /></button>
+            </div>
+            {race.status !== "planned" && <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3 text-sm sm:grid-cols-4"><div><span className="block text-xs text-muted">Offizielle Zeit</span>{formatOfficialTime(race.officialTimeSeconds)}</div><div><span className="block text-xs text-muted">Platz</span>{race.placement ?? "–"}{race.fieldSize ? ` / ${race.fieldSize}` : ""}</div><div><span className="block text-xs text-muted">Quelle</span>{race.resultSource || "–"}</div><div><span className="block text-xs text-muted">Bedingungen</span>{[race.weather, race.wind].filter(Boolean).join(" · ") || "–"}</div></div>}
+          </div>
+        ))}
+
+        {raceEditorId === competition.id && (
+          <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="text-xs text-muted">Rennphase<select className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.raceType} onChange={(e) => setRaceForm({ ...raceForm, raceType: e.target.value })}>{Object.entries(raceTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <label className="text-xs text-muted">Bezeichnung<input placeholder="z. B. A-Finale" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.label} onChange={(e) => setRaceForm({ ...raceForm, label: e.target.value })} /></label>
+              <label className="text-xs text-muted">Startzeit<input type="datetime-local" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.scheduledAt} onChange={(e) => setRaceForm({ ...raceForm, scheduledAt: e.target.value })} /></label>
+              <label className="text-xs text-muted">Status<select className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.status} onChange={(e) => setRaceForm({ ...raceForm, status: e.target.value })}>{Object.entries(raceStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <label className="text-xs text-muted">Strecke<input type="number" min="1" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.distanceMeters} onChange={(e) => setRaceForm({ ...raceForm, distanceMeters: e.target.value })} /></label>
+              <label className="text-xs text-muted">Bootsklasse<input className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.boatClass} onChange={(e) => setRaceForm({ ...raceForm, boatClass: e.target.value })} /></label>
+              <label className="text-xs text-muted">Offizielle Zeit<input placeholder="z. B. 6:42,18" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.officialTime} onChange={(e) => setRaceForm({ ...raceForm, officialTime: e.target.value })} /></label>
+              <div className="grid grid-cols-2 gap-3"><label className="text-xs text-muted">Platz<input type="number" min="1" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.placement} onChange={(e) => setRaceForm({ ...raceForm, placement: e.target.value })} /></label><label className="text-xs text-muted">von<input type="number" min="1" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.fieldSize} onChange={(e) => setRaceForm({ ...raceForm, fieldSize: e.target.value })} /></label></div>
+              <label className="text-xs text-muted">Ergebnisquelle<input placeholder="z. B. Regattabüro" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.resultSource} onChange={(e) => setRaceForm({ ...raceForm, resultSource: e.target.value })} /></label>
+              <label className="text-xs text-muted">Link zur Ergebnisliste<input type="url" placeholder="https://…" className="mt-1 block w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-foreground" value={raceForm.resultSourceUrl} onChange={(e) => setRaceForm({ ...raceForm, resultSourceUrl: e.target.value })} /></label>
+            </div>
+            {raceError && <p className="mt-3 text-sm text-negative">{raceError}</p>}
+            <div className="mt-4 flex gap-2"><button disabled={savingRace} onClick={() => saveRace(competition.id)} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-black disabled:opacity-50">{savingRace ? "Wird gespeichert …" : "Rennen speichern"}</button><button onClick={() => setRaceEditorId(null)} className="px-3 py-2 text-sm text-muted">Abbrechen</button></div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   function parseSplits(raw: string) {
@@ -344,7 +504,9 @@ export function CompetitionsSection() {
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-border">
+            {renderRaces(c)}
+
+            <div className="hidden">
               {editingId === c.id ? (
                 renderEditForm(c.id)
               ) : loggingId === c.id ? (
@@ -425,6 +587,8 @@ export function CompetitionsSection() {
 
             {editingId === c.id ? (
               <div className="mt-4 pt-4 border-t border-border">{renderEditForm(c.id)}</div>
+            ) : c.races.length > 0 ? (
+              renderRaces(c)
             ) : (
               <>
                 <div className="grid sm:grid-cols-3 gap-3 mt-3 text-sm">
