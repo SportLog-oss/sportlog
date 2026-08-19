@@ -13,7 +13,10 @@ import { WeekSchedule } from "@/components/planning/WeekSchedule";
 import { planningResponseError, usePlanningWeekController } from "@/components/planning/usePlanningWeekController";
 import { usePlanningSessionController } from "@/components/planning/usePlanningSessionController";
 import {
+  buildMatchDecisionPayload,
   buildPlanningDayLoads,
+  buildRegattaCompetitionPayload,
+  buildRegattaSessionPayload,
   buildReflectionDraft,
   buildReflectionPayload,
   INTENSITIES,
@@ -54,7 +57,7 @@ export function WeekPlanner({ initialWeek, initialMatches, initialCompetitions }
     setNotice(null);
     const response = await fetch(`/api/planning/sessions/${match.plannedSessionId}/matches`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workoutId: match.workoutId, status, score: match.score, reasons: match.reasons }),
+      body: JSON.stringify(buildMatchDecisionPayload(match, status)),
     });
     if (!response.ok) setNotice(await planningResponseError(response));
     else { await loadMatches(week.weekStart); setNotice(status === "confirmed" ? "Aktivität dem Plan bestätigt zugeordnet." : "Vorschlag abgelehnt."); }
@@ -148,7 +151,7 @@ export function WeekPlanner({ initialWeek, initialMatches, initialCompetitions }
       const competitionResponse = await fetch("/api/competitions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...regattaModal, distanceMeters: Number(regattaModal.distanceMeters) || 2000, status: "planned" }),
+        body: JSON.stringify(buildRegattaCompetitionPayload(regattaModal)),
       });
       if (!competitionResponse.ok) throw new Error(await planningResponseError(competitionResponse));
       const createdCompetition = (await competitionResponse.json()) as CompetitionResult;
@@ -156,16 +159,7 @@ export function WeekPlanner({ initialWeek, initialMatches, initialCompetitions }
       const sessionResponse = await fetch("/api/planning/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduledDate: createdCompetition.date,
-          title: createdCompetition.name,
-          sportType: "Regatta",
-          plannedDurationMin: null,
-          plannedIntensity: "competition",
-          timeOfDay: "custom",
-          description: [createdCompetition.location, createdCompetition.distanceMeters ? `${createdCompetition.distanceMeters} m` : "", createdCompetition.goal].filter(Boolean).join(" · "),
-          raceId: createdCompetition.id,
-        }),
+        body: JSON.stringify(buildRegattaSessionPayload(createdCompetition)),
       });
       if (!sessionResponse.ok) throw new Error(await planningResponseError(sessionResponse));
       setCompetitions((current) => [createdCompetition, ...current]);

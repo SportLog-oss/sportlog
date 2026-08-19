@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PlannedSession, PlanningWorkoutMatch, TrainingReflection } from "./planning";
 import {
+  buildMatchDecisionPayload,
   buildPlanningDayLoads,
+  buildRegattaCompetitionPayload,
+  buildRegattaSessionPayload,
   buildReflectionDraft,
   buildReflectionPayload,
   emptySessionDraft,
@@ -222,4 +225,41 @@ test("reflection payload turns empty draft fields into null instead of NaN or em
     deviationReason: null,
     note: "",
   });
+});
+
+test("regatta competition payload parses the distance and defaults an invalid one to 2000 m", () => {
+  const draft = { name: "Münchner Regatta", date: "2026-09-05", location: "Oberschleißheim", distanceMeters: "1500", boatClass: "1x", crew: "", goal: "Podium" };
+  assert.deepEqual(buildRegattaCompetitionPayload(draft), { ...draft, distanceMeters: 1500, status: "planned" });
+  assert.equal(buildRegattaCompetitionPayload({ ...draft, distanceMeters: "" }).distanceMeters, 2000);
+  assert.equal(buildRegattaCompetitionPayload({ ...draft, distanceMeters: "abc" }).distanceMeters, 2000);
+});
+
+test("regatta session payload links the planning session to the created competition as a competition-intensity block", () => {
+  const competition = { id: "comp-1", date: "2026-09-05", name: "Münchner Regatta", location: "Oberschleißheim", distanceMeters: 1500, goal: "Podium" };
+  assert.deepEqual(buildRegattaSessionPayload(competition), {
+    scheduledDate: "2026-09-05",
+    title: "Münchner Regatta",
+    sportType: "Regatta",
+    plannedDurationMin: null,
+    plannedIntensity: "competition",
+    timeOfDay: "custom",
+    description: "Oberschleißheim · 1500 m · Podium",
+    raceId: "comp-1",
+  });
+});
+
+test("regatta session payload description skips empty location, distance or goal", () => {
+  const competition = { id: "comp-2", date: "2026-09-06", name: "Zeitfahren", location: "", distanceMeters: 0, goal: "" };
+  assert.equal(buildRegattaSessionPayload(competition).description, "");
+});
+
+test("match decision payload carries the confirmed or rejected status alongside the match score and reasons", () => {
+  const workoutMatch = match({ workoutId: "workout-9", score: 0.82, reasons: ["Zeitfenster passt", "Sportart passt"] });
+  assert.deepEqual(buildMatchDecisionPayload(workoutMatch, "confirmed"), {
+    workoutId: "workout-9",
+    status: "confirmed",
+    score: 0.82,
+    reasons: ["Zeitfenster passt", "Sportart passt"],
+  });
+  assert.equal(buildMatchDecisionPayload(workoutMatch, "rejected").status, "rejected");
 });

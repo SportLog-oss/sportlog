@@ -7,6 +7,7 @@ import type {
   TrainingFeeling,
   TrainingReflection,
 } from "./planning";
+import type { CompetitionResult } from "./types";
 
 export const WEEK_TYPES: { value: PlanningWeekType; label: string }[] = [
   { value: "normal", label: "Normale Woche" },
@@ -136,6 +137,53 @@ export function buildReflectionPayload(
     deviationReason: draft.deviationReason || null,
     note: draft.note,
   };
+}
+
+/**
+ * Baut den API-Payload zum Anlegen der Regatta-Veranstaltung aus dem
+ * Formularentwurf. Reine Fachlogik aus WeekPlanner.saveRegatta ausgelagert.
+ */
+export function buildRegattaCompetitionPayload(draft: {
+  name: string;
+  date: string;
+  location: string;
+  distanceMeters: string;
+  boatClass: string;
+  crew: string;
+  goal: string;
+}) {
+  return { ...draft, distanceMeters: Number(draft.distanceMeters) || 2000, status: "planned" as const };
+}
+
+/**
+ * Baut den API-Payload für die Wettkampf-Einheit, mit der eine neu angelegte
+ * Regatta automatisch im Trainingsplan verknüpft wird. Reine Fachlogik aus
+ * WeekPlanner.saveRegatta ausgelagert.
+ */
+export function buildRegattaSessionPayload(
+  competition: Pick<CompetitionResult, "id" | "date" | "name" | "location" | "distanceMeters" | "goal">,
+) {
+  return {
+    scheduledDate: competition.date,
+    title: competition.name,
+    sportType: "Regatta",
+    plannedDurationMin: null,
+    plannedIntensity: "competition" as const,
+    timeOfDay: "custom" as const,
+    description: [competition.location, competition.distanceMeters ? `${competition.distanceMeters} m` : "", competition.goal].filter(Boolean).join(" · "),
+    raceId: competition.id,
+  };
+}
+
+/**
+ * Baut den API-Payload zum Bestätigen oder Ablehnen einer Plan-Ist-Zuordnung.
+ * Reine Fachlogik aus WeekPlanner.decideMatch ausgelagert.
+ */
+export function buildMatchDecisionPayload(
+  match: Pick<PlanningWorkoutMatch, "workoutId" | "score" | "reasons">,
+  status: "confirmed" | "rejected",
+) {
+  return { workoutId: match.workoutId, status, score: match.score, reasons: match.reasons };
 }
 
 export function buildPlanningDayLoads(days: string[], sessions: PlannedSession[]) {
