@@ -149,7 +149,10 @@ async function performSync({ notify, scope }: { notify: boolean; scope: SyncScop
         data: await callAthleteDataTool("garmin_get_user_metrics"),
       })),
       sync<{ fetchedAt: string; count: number }>("calendar-google", async () => {
-        const response = await callAthleteDataTool<GoogleCalendarResponse>("google_calendar_get_events", {});
+        // Without time_min, the tool returns events sorted from the earliest ever recorded
+        // (old recurring birthdays etc.), not upcoming ones — Kalenderkontext V1 only cares
+        // about what's ahead of now.
+        const response = await callAthleteDataTool<GoogleCalendarResponse>("google_calendar_get_events", { time_min: now });
         const rows = (response.items ?? []).map((event) => mapGoogleEvent(event, response.summary, now));
         await upsertCalendarEvents(rows);
         return { fetchedAt: now, count: rows.length };
