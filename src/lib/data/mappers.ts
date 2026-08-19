@@ -9,6 +9,7 @@ import type {
   ActivityNote,
   Benchmark,
   BenchmarkEntry,
+  CalendarEvent,
   ChatSession,
   CompetitionRace,
   CompetitionResult,
@@ -588,5 +589,47 @@ export function rowToWeightEntry(row: Record<string, unknown>): WeightEntry {
     measuredAt: row.measured_at as string,
     weightKg: Number(row.weight_kg),
     source: row.source as WeightEntry["source"],
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// CalendarEvent <-> calendar_events
+// ---------------------------------------------------------------------------------------------
+
+export function rowToCalendarEvent(row: Record<string, unknown>): CalendarEvent {
+  return {
+    id: row.id as string,
+    source: row.source as CalendarEvent["source"],
+    externalEventId: row.external_event_id as string,
+    calendarName: (row.calendar_name as string) ?? "",
+    title: (row.title as string) ?? "",
+    startsAt: row.starts_at as string,
+    endsAt: row.ends_at as string,
+    allDay: Boolean(row.all_day),
+    isFree: Boolean(row.is_free),
+    isCanceled: Boolean(row.is_canceled),
+    selfIsOrganizer: (row.self_is_organizer as boolean | null) ?? null,
+    selfIsAttendee: (row.self_is_attendee as boolean | null) ?? null,
+    selfResponse: (row.self_response as string | null) ?? null,
+    lastSyncedAt: row.last_synced_at as string,
+  };
+}
+
+export function calendarEventToRow(e: Omit<CalendarEvent, "id">) {
+  return {
+    source: e.source,
+    external_event_id: e.externalEventId,
+    calendar_name: e.calendarName,
+    title: e.title,
+    starts_at: e.startsAt,
+    ends_at: e.endsAt,
+    all_day: e.allDay,
+    is_free: e.isFree,
+    is_canceled: e.isCanceled,
+    self_is_organizer: e.selfIsOrganizer,
+    self_is_attendee: e.selfIsAttendee,
+    self_response: e.selfResponse,
+    last_synced_at: e.lastSyncedAt,
+    updated_at: e.lastSyncedAt,
   };
 }

@@ -264,6 +264,32 @@ export type CompetitionRace = {
   updatedAt: string;
 };
 
+export type CalendarEventSource = "apple" | "google";
+
+/**
+ * Read-only calendar context (Kalenderkontext V1). Never created by the
+ * user in SportLog itself — mirrors what AthleteData exposes from Apple
+ * Calendar and Google Calendar so the plan can show conflicts and free
+ * time without turning a personal appointment into training data.
+ */
+export type CalendarEvent = {
+  id: string;
+  source: CalendarEventSource;
+  externalEventId: string;
+  calendarName: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  /** Marked as "free"/available by the user — an FYI, not a firm block. */
+  isFree: boolean;
+  isCanceled: boolean;
+  selfIsOrganizer: boolean | null;
+  selfIsAttendee: boolean | null;
+  selfResponse: string | null;
+  lastSyncedAt: string;
+};
+
 export type Goal = {
   id: string;
   title: string;

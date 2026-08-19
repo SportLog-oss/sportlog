@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { Activity, AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, CircleHelp, Heart, HeartPulse, Moon, Target } from "lucide-react";
 import { buildTodayResponse, greetingForDate } from "@/lib/today";
+import type { CalendarEvent } from "@/lib/types";
 import { Card } from "@/components/ui/Card";
 import { WarningBanner } from "@/components/ui/WarningBanner";
 import { PageShell } from "@/components/layout/PageShell";
@@ -74,6 +75,16 @@ export default async function TodayPage() {
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/40 bg-accent-soft text-accent"><Target size={25} /></span>
             <div><p className="text-sm font-semibold">{focusLabel}</p><p className="mt-2 text-base font-semibold leading-relaxed text-foreground/90">{focus}</p></div>
           </section>
+          {today.nextCalendarEvent && (
+            <section className="flex items-start gap-3 rounded-2xl border border-dashed border-border bg-surface/60 p-4">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-muted"><CalendarDays size={18} /></span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Kalender · {today.nextCalendarEvent.calendarName || "kein SportLog-Training"}</p>
+                <p className="mt-1 truncate text-sm font-medium text-foreground/90">{today.nextCalendarEvent.title || "Termin ohne Titel"}</p>
+                <p className="mt-0.5 text-xs text-muted">{calendarEventTiming(today.nextCalendarEvent, today.date)}</p>
+              </div>
+            </section>
+          )}
         </div>
       </div>
 
@@ -99,6 +110,19 @@ function stateLabel(value: number) {
   if (value < 70) return "Mäßig";
   if (value < 100) return "Gut";
   return "Sehr gut";
+}
+
+function calendarEventTiming(event: CalendarEvent, todayKey: string) {
+  if (event.allDay) {
+    const dateLabel = new Date(`${event.startsAt.slice(0, 10)}T12:00:00`).toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" });
+    return `Ganztägig · ${dateLabel}`;
+  }
+  const start = new Date(event.startsAt);
+  const sameDay = start.toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" }) === todayKey;
+  const timeLabel = start.toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+  if (sameDay) return `Heute, ${timeLabel} Uhr`;
+  const dateLabel = start.toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", weekday: "long", day: "numeric", month: "long" });
+  return `${dateLabel}, ${timeLabel} Uhr`;
 }
 
 function readableSessionTitle(title: string, sportType: string) {

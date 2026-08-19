@@ -5,6 +5,7 @@ import type {
   AnalyticsSummaryCache,
   AnomaliesCache,
   Benchmark,
+  CalendarEvent,
   ChatSession,
   CompetitionResult,
   CurvesCache,
@@ -35,6 +36,7 @@ import {
   activityToWorkoutRow,
   benchmarkEntryToRow,
   benchmarkToRow,
+  calendarEventToRow,
   chatMessageToRow,
   chatSessionToRow,
   competitionToRow,
@@ -47,6 +49,7 @@ import {
   rowToActivityNote,
   rowToBenchmark,
   rowToBenchmarkEntry,
+  rowToCalendarEvent,
   rowToChatMessage,
   rowToChatSession,
   rowToCompetition,
@@ -664,4 +667,37 @@ export async function recordWeight(
     .single();
   if (error) throw error;
   return rowToWeightEntry(data as Record<string, unknown>);
+}
+
+// ===============================================================================================
+// Kalenderkontext V1 (read-only). Events are mirrored from AthleteData's Apple/Google calendar
+// tools by src/lib/calendarSync.ts and never created or edited by the user in SportLog itself.
+// ===============================================================================================
+
+export async function upsertCalendarEvents(events: Omit<CalendarEvent, "id">[]): Promise<void> {
+  if (events.length === 0) return;
+  const supabase = await getSupabaseForRequest();
+  const rows = events.map(calendarEventToRow);
+  const { error } = await supabase
+    .from("calendar_events")
+    .upsert(rows, { onConflict: "user_id,source,external_event_id" });
+  if (error) throw error;
+}
+
+/** At most the next upcoming event that is neither cancelled, declined, nor marked free/available. */
+export async function getNextRelevantCalendarEvent(): Promise<CalendarEvent | null> {
+  const supabase = await getSupabaseForRequest();
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("calendar_events")
+    .select("*")
+    .gte("ends_at", nowIso)
+    .eq("is_canceled", false)
+    .eq("is_free", false)
+    .or("self_response.is.null,self_response.neq.declined")
+    .order("starts_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToCalendarEvent(data) : null;
 }

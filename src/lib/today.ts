@@ -1,6 +1,6 @@
-import { getActivities, getAnomalies, getAthleteDataSyncStatus, getDailyMetrics, getIllnessLog, getInjuryRisk } from "@/lib/data/store";
+import { getActivities, getAnomalies, getAthleteDataSyncStatus, getDailyMetrics, getIllnessLog, getInjuryRisk, getNextRelevantCalendarEvent } from "@/lib/data/store";
 import { computeSleepPerformance, computeStrain, generateWarnings, type Warning } from "@/lib/insights";
-import type { Activity } from "@/lib/types";
+import type { Activity, CalendarEvent } from "@/lib/types";
 import { getPlanningWeek } from "@/lib/data/planningStore";
 import { mondayForDate, type PlannedSession } from "@/lib/planning";
 import { getPlanningMatches } from "@/lib/data/planningMatchStore";
@@ -37,6 +37,8 @@ export type TodayResponse = {
   todayActivities: Activity[];
   plannedSessions: PlannedSession[];
   nextPlannedSession: PlannedSession | null;
+  /** At most the next relevant calendar event or conflict — read-only context, never a plan. */
+  nextCalendarEvent: CalendarEvent | null;
   comparisons: TodayTrainingComparison[];
   journey: {
     stage: "plan" | "train" | "match" | "reflect" | "adapt" | "complete";
@@ -71,9 +73,12 @@ export async function buildTodayResponse(): Promise<TodayResponse> {
   const now = new Date();
   const today = localDateKey(now);
   const weekStart = mondayForDate(today);
-  const [daily, injuryRisk, anomalies, activityCache, illnesses, syncStatus, planningWeek, planningMatches] = await Promise.all([
+  const [daily, injuryRisk, anomalies, activityCache, illnesses, syncStatus, planningWeek, planningMatches, nextCalendarEvent] = await Promise.all([
     getDailyMetrics(), getInjuryRisk(), getAnomalies(), getActivities(), getIllnessLog(), getAthleteDataSyncStatus(), getPlanningWeek(mondayForDate(today)),
     getPlanningMatches(weekStart),
+    // Calendar context is additive and its table may not exist yet (Kalenderkontext V1 is an
+    // unapplied local migration draft) — never let a missing table break the Heute page.
+    getNextRelevantCalendarEvent().catch(() => null),
   ]);
   const rows = daily.rows;
   const lastWithRecovery = [...rows].reverse().find((row) => row.recoveryScore !== null);
@@ -156,6 +161,6 @@ export async function buildTodayResponse(): Promise<TodayResponse> {
       ...(activeIllness ? [{ id: "health", label: "Krankheitsstatus prüfen", href: "/health" }] : []),
     ].slice(0, 3),
     stats: { recoveryPct, strain: computeStrain(lastWithLoad?.dailyLoad ?? null), sleepPerformance },
-    warnings: generateWarnings(rows, anomalies.anomalies, injuryRisk).slice(0, 3), todayActivities, plannedSessions, nextPlannedSession, comparisons, journey,
+    warnings: generateWarnings(rows, anomalies.anomalies, injuryRisk).slice(0, 3), todayActivities, plannedSessions, nextPlannedSession, nextCalendarEvent, comparisons, journey,
   };
 }
