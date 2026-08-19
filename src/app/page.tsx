@@ -14,6 +14,7 @@ export default async function TodayPage() {
   const DecisionIcon = partialTrainingDay ? Activity : today.decision.status === "clarify" ? AlertTriangle : today.decision.status === "planned" ? CheckCircle2 : CircleHelp;
   const recovery = today.stats.recoveryPct ?? 0;
   const sleep = today.stats.sleepPerformance ?? 0;
+  const sleepOverPct = today.stats.sleepPerformance !== null && today.stats.sleepPerformance > 100 ? Math.round(today.stats.sleepPerformance - 100) : null;
   const reflectedLoads = today.comparisons.flatMap((comparison) => comparison.rpe === null ? [] : [comparison.rpe]);
   const load = reflectedLoads.length > 0 ? Math.max(...reflectedLoads) : Math.min(10, today.stats.strain / 2.1);
   const healthIssue = today.reasons.some((reason) => reason.label === "Gesundheit");
@@ -65,7 +66,7 @@ export default async function TodayPage() {
           <Card title="Aktueller Zustand">
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <CompactStateMetric icon={Heart} title="Erholung" value={`${Math.round(recovery)}%`} status={today.stats.recoveryPct !== null ? stateLabel(recovery) : "Keine Daten"} progress={recovery} color="#f6ad3c" />
-              <CompactStateMetric icon={Moon} title="Schlaf" value={`${Math.round(sleep)}%`} status={today.stats.sleepPerformance !== null ? stateLabel(sleep) : "Keine Daten"} progress={sleep} color="#6793ff" statusClass="text-positive" />
+              <CompactStateMetric icon={Moon} title="Schlaf" value={`${Math.round(Math.min(100, sleep))}%`} status={today.stats.sleepPerformance !== null ? stateLabel(sleep) : "Keine Daten"} note={sleepOverPct !== null ? `+${sleepOverPct} % über Bedarf` : undefined} progress={sleep} color="#6793ff" statusClass="text-positive" />
               <CompactStateMetric icon={Activity} title="Belastung" value={`${load.toFixed(load % 1 === 0 ? 0 : 1)}/10`} status={load < 4 ? "Leicht" : load < 8 ? "Mäßig" : "Hoch"} progress={load * 10} color="#f6ad3c" />
             </div>
           </Card>
@@ -96,7 +97,8 @@ function ContextCard({ eyebrow, title, detail, actionLabel, href, icon: Icon }: 
 function stateLabel(value: number) {
   if (value < 40) return "Niedrig";
   if (value < 70) return "Mäßig";
-  return "Gut";
+  if (value < 100) return "Gut";
+  return "Sehr gut";
 }
 
 function readableSessionTitle(title: string, sportType: string) {
@@ -105,7 +107,7 @@ function readableSessionTitle(title: string, sportType: string) {
   return `${title} · ${sportType}`;
 }
 
-function CompactStateMetric({ icon: Icon, title, value, status, progress, color, statusClass = "text-warning" }: { icon: LucideIcon; title: string; value: string; status: string; progress: number; color: string; statusClass?: string }) {
+function CompactStateMetric({ icon: Icon, title, value, status, note, progress, color, statusClass = "text-warning" }: { icon: LucideIcon; title: string; value: string; status: string; note?: string; progress: number; color: string; statusClass?: string }) {
   const radius = 22;
   const circumference = 2 * Math.PI * radius;
   const arc = circumference * 0.78;
@@ -119,7 +121,12 @@ function CompactStateMetric({ icon: Icon, title, value, status, progress, color,
         </svg>
         <Icon size={21} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-foreground" strokeWidth={1.8} />
       </div>
-      <div className="min-w-0"><p className="text-[10px] text-muted sm:text-xs">{title}</p><p className="text-xl font-semibold leading-tight sm:text-2xl">{value}</p><p className={`mt-0.5 text-[10px] font-semibold sm:text-xs ${statusClass}`}>{status}</p></div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-muted sm:text-xs">{title}</p>
+        <p className="text-xl font-semibold leading-tight sm:text-2xl">{value}</p>
+        <p className={`mt-0.5 text-[10px] font-semibold sm:text-xs ${statusClass}`}>{status}</p>
+        {note && <p className="text-[10px] text-muted sm:text-xs">{note}</p>}
+      </div>
     </div>
   );
 }
