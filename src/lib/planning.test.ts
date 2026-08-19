@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { addDays, mondayForDate, plannedSessionCreateSchema, planningWeekInputSchema, trainingReflectionInputSchema } from "./planning";
+import { addDays, mondayForDate, plannedSessionCreateSchema, planningWeekInputSchema, trainingReflectionInputSchema } from "./planning.ts";
 
 test("mondayForDate returns the ISO week Monday", () => {
   assert.equal(mondayForDate("2026-08-03"), "2026-08-03");
