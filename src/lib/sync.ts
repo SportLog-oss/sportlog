@@ -12,7 +12,7 @@ import {
   upsertCalendarEvents,
   upsertPersonalBestIfBetter,
 } from "@/lib/data/store";
-import { mapAppleEvent, mapGoogleEvent, type AppleCalendarEvent, type GoogleCalendarResponse } from "@/lib/calendarSync";
+import { mapGoogleEvent, type GoogleCalendarResponse } from "@/lib/calendarSync";
 import { generateTodayRecommendation, generateWarnings } from "@/lib/insights";
 import { findPersonalBestCandidates, PB_CATEGORY_META } from "@/lib/personalBests";
 import { sendPushToAll } from "@/lib/push";
@@ -51,10 +51,23 @@ async function runTrackedSync({ notify, scope }: { notify: boolean; scope: SyncS
     await finishAthleteDataSync(result.saved, result.failed);
     return result;
   } catch (error) {
-    const failures = [{ key: "sync", error: error instanceof Error ? error.message : String(error) }];
+    const failures = [{ key: "sync", error: errorMessage(error) }];
     await finishAthleteDataSync([], failures).catch(() => undefined);
     throw error;
   }
+}
+
+/**
+ * Supabase/PostgREST errors carry a readable `.message` but aren't `instanceof Error`, so the
+ * previous `error instanceof Error ? error.message : String(error)` check silently degraded them
+ * to the useless "[object Object]".
+ */
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && typeof (error as { message?: unknown }).message === "string") {
+    return (error as { message: string }).message;
+  }
+  return String(error);
 }
 
 async function performSync({ notify, scope }: { notify: boolean; scope: SyncScope }) {
@@ -72,7 +85,7 @@ async function performSync({ notify, scope }: { notify: boolean; scope: SyncScop
       saved.push(key);
       return data;
     } catch (error) {
-      failed.push({ key, error: error instanceof Error ? error.message : String(error) });
+      failed.push({ key, error: errorMessage(error) });
       return null;
     } finally {
       timings[key] = Date.now() - categoryStartedAt;
@@ -99,7 +112,7 @@ async function performSync({ notify, scope }: { notify: boolean; scope: SyncScop
   let userMetrics: unknown = null;
 
   if (scope === "all") {
-    const [dailyResult, , , injuryResult, anomalyResult, performanceResult, , userMetricsResult, , ,] = await Promise.all([
+    const [dailyResult, , , injuryResult, anomalyResult, performanceResult, , userMetricsResult, ,] = await Promise.all([
       sync<DailyMetricsCache>("daily-metrics", async () => {
         const raw = await callAthleteDataTool<{ period: string; rows: DailyMetricRow[] }>("get_daily_metrics");
         return { fetchedAt: now, period: raw.period, rows: raw.rows };
@@ -135,12 +148,6 @@ async function performSync({ notify, scope }: { notify: boolean; scope: SyncScop
         fetchedAt: now,
         data: await callAthleteDataTool("garmin_get_user_metrics"),
       })),
-      sync<{ fetchedAt: string; count: number }>("calendar-apple", async () => {
-        const events = await callAthleteDataTool<AppleCalendarEvent[]>("apple_calendar_get_events", {});
-        const rows = events.map((event) => mapAppleEvent(event, now));
-        await upsertCalendarEvents(rows);
-        return { fetchedAt: now, count: rows.length };
-      }),
       sync<{ fetchedAt: string; count: number }>("calendar-google", async () => {
         const response = await callAthleteDataTool<GoogleCalendarResponse>("google_calendar_get_events", {});
         const rows = (response.items ?? []).map((event) => mapGoogleEvent(event, response.summary, now));
