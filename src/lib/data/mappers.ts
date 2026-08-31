@@ -10,13 +10,11 @@ import type {
   Benchmark,
   BenchmarkEntry,
   CalendarEvent,
-  ChatSession,
   CompetitionRace,
   CompetitionResult,
   Goal,
   IllnessLogEntry,
   MentalHealthCheckin,
-  PersistedChatMessage,
   PersonalBest,
   Profile,
   ReminderPreferences,
@@ -365,37 +363,6 @@ export function rowToMentalHealthCheckin(row: Record<string, unknown>): MentalHe
     stress: (row.stress as number | null) ?? null,
     energy: (row.energy as number | null) ?? null,
     sleepQuality: (row.sleep_quality as number | null) ?? null,
-  };
-}
-
-// ---------------------------------------------------------------------------------------------
-// ChatSession / PersistedChatMessage <-> chat_sessions / chat_messages
-// ---------------------------------------------------------------------------------------------
-
-export function chatSessionToRow(s: ChatSession) {
-  return { id: s.id, title: s.title, created_at: s.createdAt, updated_at: s.updatedAt };
-}
-
-export function rowToChatSession(row: Record<string, unknown>): ChatSession {
-  return {
-    id: row.id as string,
-    title: (row.title as string) ?? "Neuer Chat",
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  };
-}
-
-export function chatMessageToRow(m: PersistedChatMessage) {
-  return { id: m.id, chat_id: m.chatId, role: m.role, content: m.content, created_at: m.createdAt };
-}
-
-export function rowToChatMessage(row: Record<string, unknown>): PersistedChatMessage {
-  return {
-    id: row.id as string,
-    chatId: row.chat_id as string,
-    role: row.role as PersistedChatMessage["role"],
-    content: row.content as string,
-    createdAt: row.created_at as string,
   };
 }
 

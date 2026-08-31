@@ -8,6 +8,36 @@ import { adaptationFor } from "@/lib/trainingAdaptation";
 
 export const SPORTLOG_TIME_ZONE = "Europe/Berlin";
 
+/** Shared traffic-light logic for the three Heute state tiles (Erholung/Schlaf/Belastung) — same
+ * color always means the same thing, independent of which metric it's attached to (Konzept 004). */
+export type ZustandStatus = "good" | "watch" | "risk";
+
+export const ZUSTAND_STATUS_COLOR: Record<ZustandStatus, string> = {
+  good: "var(--positive)",
+  watch: "var(--warning)",
+  risk: "var(--negative)",
+};
+
+export function recoveryZustandStatus(pct: number | null): ZustandStatus {
+  if (pct === null) return "watch";
+  if (pct < 40) return "risk";
+  if (pct < 70) return "watch";
+  return "good";
+}
+
+export function sleepZustandStatus(pct: number | null): ZustandStatus {
+  if (pct === null) return "watch";
+  if (pct < 70) return "risk";
+  if (pct < 85) return "watch";
+  return "good";
+}
+
+export function loadZustandStatus(load: number): ZustandStatus {
+  if (load >= 8) return "risk";
+  if (load >= 4) return "watch";
+  return "good";
+}
+
 export type TodayReason = { label: string; detail: string; tone: "positive" | "neutral" | "warning" | "critical" };
 export type TodayTrainingComparison = {
   plannedSessionId: string;
@@ -28,7 +58,10 @@ export type TodayResponse = {
   phase: "before_training" | "after_training";
   displayMode: "morning" | "post_training" | "evening";
   dataQuality: { status: "current" | "limited"; label: string; ageHours: number | null };
-  decision: { status: "insufficient_data" | "clarify" | "planned"; title: string; summary: string };
+  /** The five Tagesentscheidung states from Konzept 001. "focus" and "adjust" used to share the
+   * "clarify" bucket — kept distinct now so the coach sentence and tile color don't conflate
+   * "mit Fokus durchführen" (yellow, still training) with "mit Trainer klären" (red, stop and ask). */
+  decision: { status: "insufficient_data" | "focus" | "adjust" | "clarify" | "planned"; title: string; summary: string };
   reasons: TodayReason[];
   focus: string;
   actions: { id: string; label: string; href?: string; disabled?: boolean }[];
@@ -91,10 +124,10 @@ export async function buildTodayResponse(): Promise<TodayResponse> {
   const ageHours = Number.isFinite(fetchedAtMs) ? Math.max(0, (now.getTime() - fetchedAtMs) / 3_600_000) : null;
   const stale = ageHours === null || ageHours > 36 || syncStatus.status === "failed";
   const reasons: TodayReason[] = [];
-  if (activeIllness) reasons.push({ label: "Gesundheit", detail: "Eine aktive Krankheit ist dokumentiert.", tone: "critical" });
-  if (recoveryPct !== null) reasons.push({ label: "Erholung", detail: `${Math.round(recoveryPct)} % im zuletzt verfügbaren Datensatz.`, tone: recoveryPct < 25 ? "warning" : recoveryPct >= 60 ? "positive" : "neutral" });
-  if (sleepPerformance !== null) reasons.push({ label: "Schlaf", detail: `${Math.round(sleepPerformance)} % deines ermittelten Schlafbedarfs.`, tone: sleepPerformance < 70 ? "warning" : "neutral" });
-  if (stale) reasons.unshift({ label: "Datenqualität", detail: "Die entscheidungsrelevanten Daten sind veraltet oder unvollständig.", tone: "warning" });
+  if (activeIllness) reasons.push({ label: "Gesundheit", detail: "Aktive Krankheit dokumentiert", tone: "critical" });
+  if (recoveryPct !== null) reasons.push({ label: "Erholung", detail: recoveryPct >= 70 ? `Erholung im Zielband (${Math.round(recoveryPct)} %)` : recoveryPct >= 40 ? `Erholung ${Math.round(recoveryPct)} % – aufmerksam beobachten` : `Erholung niedrig (${Math.round(recoveryPct)} %)`, tone: recoveryPct < 25 ? "warning" : recoveryPct >= 60 ? "positive" : "neutral" });
+  if (sleepPerformance !== null) reasons.push({ label: "Schlaf", detail: sleepPerformance >= 85 ? `Schlaf über Bedarf (${Math.round(sleepPerformance)} %)` : `Schlaf ${Math.round(sleepPerformance)} % des Bedarfs`, tone: sleepPerformance < 70 ? "warning" : "neutral" });
+  if (stale) reasons.unshift({ label: "Datenqualität", detail: "Datenlage eingeschränkt", tone: "warning" });
   const todayActivities = activityCache.activities.filter((activity) => localDateKey(new Date(activity.startTimeInSeconds * 1000)) === today);
   const plannedSessions = planningWeek.sessions.filter((session) => session.scheduledDate === today && session.status !== "cancelled");
   const nextPlannedSession = planningWeek.sessions
@@ -141,19 +174,28 @@ export async function buildTodayResponse(): Promise<TodayResponse> {
           : adaptation
             ? { stage: "adapt", title: adaptation.title, detail: `${adaptation.reason} Prüfe den Vorschlag für die nächste Einheit.`, actionLabel: "Anpassung prüfen", href: "/planung", currentStep: 4 }
             : { stage: "complete", title: "Erholung beobachten", detail: "Plan, Garmin-Aktivität und Reflexion sind verbunden. Aktuell ist keine Plananpassung nötig.", actionLabel: "Ergebnis ansehen", href: "/planung", currentStep: 5 };
+  const cautionNotes: string[] = [];
+  if (recoveryPct !== null && recoveryPct < 70) cautionNotes.push(`deine Erholung liegt bei ${Math.round(recoveryPct)} %`);
+  if (sleepPerformance !== null && sleepPerformance < 85) cautionNotes.push(`dein Schlaf lag unter deinem Bedarf`);
+  const planLabel = plannedSessions.length > 1 ? `${plannedSessions.length} Einheiten` : primaryPlan ? `„${primaryPlan.title}“` : "";
+
   const decision = activeIllness
-    ? { status: "clarify" as const, title: "Vor Belastung gesundheitlich klären", summary: primaryPlan ? `Für heute ist „${primaryPlan.title}“ geplant. Wegen der aktiven Krankheit sollte die Durchführung trotzdem gesundheitlich geklärt werden.` : "Wegen der aktiven Krankheit sollte intensive Belastung nicht allein aus Messwerten abgeleitet werden." }
+    ? { status: "clarify" as const, title: "Vor dem Training mit Trainer oder Arzt klären", summary: primaryPlan ? `Für heute ist ${planLabel} geplant. Wegen der aktiven Krankheit sollte die Durchführung trotzdem geklärt werden.` : "Wegen der aktiven Krankheit sollte intensive Belastung nicht allein aus Messwerten abgeleitet werden." }
     : journey.stage === "complete"
       ? { status: "planned" as const, title: "Training abgeschlossen und eingeordnet", summary: "Dein Training ist sauber mit dem Plan verbunden. Für heute bist du fertig." }
       : journey.stage === "adapt"
-        ? { status: "clarify" as const, title: "Nächste Einheit bewusst prüfen", summary: journey.detail }
-    : primaryPlan
-      ? { status: "planned" as const, title: plannedSessions.length > 1 ? `${plannedSessions.length} Einheiten sind für heute geplant` : `Heute geplant: ${primaryPlan.title}`, summary: stale ? "Der Plan ist vorhanden, aber die Zustandsdaten sind eingeschränkt. SportLog zeigt deshalb den Plan, behauptet jedoch keine Trainingsfreigabe." : "Der heutige Plan ist klar. Nutze die Zustandsdaten als Kontext und halte relevante Abweichungen nach dem Training fest." }
-      : { status: "insufficient_data" as const, title: "Noch keine belastbare Planentscheidung", summary: stale ? "Der Trainingsplan fehlt und die Datenlage ist eingeschränkt. SportLog zeigt deshalb bewusst keine Trainingsfreigabe." : "Dein aktueller Zustand ist eingeordnet, aber SportLog kennt noch keine geplante Einheit. Deshalb wird keine passende Trainingsintensität behauptet." };
+        ? { status: "adjust" as const, title: adaptation ? adaptation.title : "Nächste Einheit bewusst anpassen", summary: journey.detail }
+        : stale
+          ? { status: "insufficient_data" as const, title: primaryPlan ? "Plan vorhanden, aber noch keine belastbare Empfehlung" : "Noch keine belastbare Entscheidung", summary: primaryPlan ? `${planLabel} ${plannedSessions.length > 1 ? "sind" : "ist"} geplant, aber die aktuellen Schlaf- und Erholungsdaten fehlen oder sind veraltet.` : "Die aktuellen Schlaf- und Erholungsdaten fehlen oder sind veraltet." }
+          : primaryPlan
+            ? cautionNotes.length > 0
+              ? { status: "focus" as const, title: `Mit Fokus durchführen: ${planLabel}`, summary: `Die Einheit bleibt sinnvoll, ${cautionNotes[0]} – heute mit Aufmerksamkeit statt auf Umfang gehen.` }
+              : { status: "planned" as const, title: `Plan wie vorgesehen: ${planLabel}`, summary: "Dein aktueller Zustand spricht nicht gegen die geplante Belastung. Setze die Einheit wie vorgesehen um." }
+            : { status: "insufficient_data" as const, title: "Noch keine belastbare Entscheidung", summary: "Dein aktueller Zustand ist eingeordnet, aber SportLog kennt noch keine geplante Einheit für heute." };
   return {
     date: today, fetchedAt: daily.fetchedAt, phase: todayActivities.length > 0 ? "after_training" : "before_training", displayMode,
     dataQuality: { status: stale ? "limited" : "current", label: stale ? "Datenlage eingeschränkt" : "Daten aktuell", ageHours: ageHours === null ? null : Math.round(ageHours) },
-    decision, reasons: reasons.slice(0, 3),
+    decision, reasons: reasons.slice(0, 2),
     focus: activeIllness ? "Gesundheit zuerst: Symptome und Trainingspause prüfen." : journey.stage === "complete" ? "Erholung beobachten und die nächste geplante Einheit erst bei neuen Signalen anpassen." : journey.stage === "adapt" ? journey.detail : todayActivities.length > 0 ? "Training kurz reflektieren und relevante Abweichungen festhalten." : primaryPlan ? primaryPlan.technicalFocus || primaryPlan.description || `Die geplante Einheit „${primaryPlan.title}“ bewusst durchführen.` : "Geplante Einheit ergänzen, damit SportLog Plan und Zustand verbinden kann.",
     actions: [
       ...(todayActivities.length > 0 ? [{ id: "review", label: "Heutige Aktivität öffnen", href: `/training/${todayActivities[0].activityId}` }] : []),

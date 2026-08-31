@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * (which would lose created_at and break child-table FKs like benchmark_entries.benchmark_id).
  *
  * Only for tables with a simple single-column id (goals_and_races, strength_sessions,
- * illness_log, mental_health_checkins, chat_sessions, benchmarks). Tables keyed by a natural
+ * illness_log, mental_health_checkins, benchmarks). Tables keyed by a natural
  * composite key (activity_notes, training_log_entries) never shrink via the app's save flow —
  * see the bespoke upsert-only functions for those in store.ts.
  */

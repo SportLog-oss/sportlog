@@ -410,21 +410,6 @@ export type MentalHealthCheckin = {
   sleepQuality: number | null;
 };
 
-export type ChatSession = {
-  id: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type PersistedChatMessage = {
-  id: string;
-  chatId: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt: string;
-};
-
 export interface ActivitySeriesPoint {
   /** Seconds elapsed since activity start */
   t: number;
