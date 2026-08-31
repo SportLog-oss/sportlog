@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { CalendarDays, Dumbbell, HeartPulse, Home, Sparkles, TrendingUp, UserCircle, Waves } from "lucide-react";
+import { CalendarDays, Dumbbell, HeartPulse, Home, TrendingUp, UserCircle, Waves } from "lucide-react";
 import { QuickAddModal } from "./QuickAddModal";
 
 const NAV_ITEMS = [
@@ -14,7 +14,6 @@ const NAV_ITEMS = [
   { href: "/health", label: "Gesundheit", icon: HeartPulse },
   { href: "/erfolg", label: "Erfolg", icon: TrendingUp },
   { href: "/profil", label: "Profil", icon: UserCircle, separated: true },
-  { href: "/coach", label: "KI-Coach", icon: Sparkles },
 ];
 
 export function Sidebar({ freshnessLabel }: { freshnessLabel?: string }) {

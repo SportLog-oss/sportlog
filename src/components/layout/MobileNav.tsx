@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { CalendarDays, Dumbbell, HeartPulse, Home, MoreHorizontal, Sparkles, TrendingUp, UserCircle } from "lucide-react";
+import { CalendarDays, Dumbbell, HeartPulse, Home, MoreHorizontal, TrendingUp, UserCircle } from "lucide-react";
 import { QuickAddModal } from "./QuickAddModal";
 
 const MAIN_ITEMS = [
@@ -20,7 +20,7 @@ export function MobileNav() {
   const [healthOpen, setHealthOpen] = useState(false);
 
   if (pathname === "/login") return null;
-  const secondaryActive = ["/erfolg", "/coach", "/profil"].includes(pathname);
+  const secondaryActive = ["/erfolg", "/profil"].includes(pathname);
 
   return (
     <>
@@ -28,7 +28,6 @@ export function MobileNav() {
       {moreOpen && (
         <div className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-surface p-3 shadow-2xl md:hidden">
           <MoreLink href="/erfolg" label="Erfolg" icon={TrendingUp} onClick={() => setMoreOpen(false)} />
-          <MoreLink href="/coach" label="KI-Coach" icon={Sparkles} onClick={() => setMoreOpen(false)} />
           <MoreLink href="/profil" label="Profil" icon={UserCircle} onClick={() => setMoreOpen(false)} />
           <button onClick={() => { setMoreOpen(false); setHealthOpen(true); }} className="flex items-center gap-3 rounded-xl bg-surface-raised px-3 py-3 text-left text-sm font-medium"><HeartPulse size={19} className="text-accent" /> Befinden</button>
         </div>

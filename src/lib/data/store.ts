@@ -6,7 +6,6 @@ import type {
   AnomaliesCache,
   Benchmark,
   CalendarEvent,
-  ChatSession,
   CompetitionResult,
   CurvesCache,
   DailyMetricsCache,
@@ -15,7 +14,6 @@ import type {
   InjuryRiskCache,
   MentalHealthCheckin,
   PerformanceEstimatesCache,
-  PersistedChatMessage,
   PersonalBest,
   Profile,
   ProfileFieldName,
@@ -37,8 +35,6 @@ import {
   benchmarkEntryToRow,
   benchmarkToRow,
   calendarEventToRow,
-  chatMessageToRow,
-  chatSessionToRow,
   competitionToRow,
   goalToRow,
   illnessLogEntryToRow,
@@ -50,8 +46,6 @@ import {
   rowToBenchmark,
   rowToBenchmarkEntry,
   rowToCalendarEvent,
-  rowToChatMessage,
-  rowToChatSession,
   rowToCompetition,
   rowToCompetitionRace,
   rowToGoal,
@@ -467,38 +461,6 @@ export async function saveMentalHealthCheckins(checkins: MentalHealthCheckin[]) 
   await syncCollection(supabase, "mental_health_checkins", checkins.map(mentalHealthCheckinToRow));
 }
 
-export async function getChatSessions(): Promise<ChatSession[]> {
-  const supabase = await getSupabaseForRequest();
-  const { data, error } = await supabase.from("chat_sessions").select("*").order("updated_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(rowToChatSession);
-}
-
-export async function saveChatSessions(sessions: ChatSession[]) {
-  const supabase = await getSupabaseForRequest();
-  await syncCollection(supabase, "chat_sessions", sessions.map(chatSessionToRow));
-}
-
-export async function getChatMessages(chatId: string): Promise<PersistedChatMessage[]> {
-  const supabase = await getSupabaseForRequest();
-  const { data, error } = await supabase.from("chat_messages").select("*").eq("chat_id", chatId).order("created_at");
-  if (error) throw error;
-  return (data ?? []).map(rowToChatMessage);
-}
-
-export async function saveChatMessages(chatId: string, messages: PersistedChatMessage[]) {
-  const supabase = await getSupabaseForRequest();
-  if (!messages.length) return;
-  const { error } = await supabase.from("chat_messages").upsert(messages.map(chatMessageToRow), { onConflict: "id" });
-  if (error) throw error;
-}
-
-export async function deleteChatMessages(chatId: string) {
-  const supabase = await getSupabaseForRequest();
-  const { error } = await supabase.from("chat_messages").delete().eq("chat_id", chatId);
-  if (error) throw error;
-}
-
 const DEFAULT_REMINDER_PREFERENCES: ReminderPreferences = {
   enabledTypes: ["log-training", "log-pain", "update-illness", "log-mental-health", "daily-checkin", "new-activity"],
   preferredHour: 19,
@@ -685,9 +647,16 @@ export async function upsertCalendarEvents(events: Omit<CalendarEvent, "id">[]):
 }
 
 /** At most the next upcoming event that is neither cancelled, declined, nor marked free/available. */
+// "Heute" only ever surfaces the next *sportrelevant* appointment (Training, ggf. Physio/Reha) —
+// school/work/life-admin events never belong there (Konzept 004). There's no category column on
+// calendar_events, so relevance is judged by title keywords rather than by calendar name (the
+// same event source can mix personal and sport entries under one calendar).
+const SPORT_RELEVANT_TITLE_KEYWORDS = ["training", "physio", "reha"];
+
 export async function getNextRelevantCalendarEvent(): Promise<CalendarEvent | null> {
   const supabase = await getSupabaseForRequest();
   const nowIso = new Date().toISOString();
+  const titleFilter = SPORT_RELEVANT_TITLE_KEYWORDS.map((keyword) => `title.ilike.%${keyword}%`).join(",");
   const { data, error } = await supabase
     .from("calendar_events")
     .select("*")
@@ -695,6 +664,7 @@ export async function getNextRelevantCalendarEvent(): Promise<CalendarEvent | nu
     .eq("is_canceled", false)
     .eq("is_free", false)
     .or("self_response.is.null,self_response.neq.declined")
+    .or(titleFilter)
     .order("starts_at", { ascending: true })
     .limit(1)
     .maybeSingle();
