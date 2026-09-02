@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { Benchmark, BenchmarkEntry } from "@/lib/types";
 import { Check, ChevronDown, ChevronUp, Pencil, Trash2, Trophy, X } from "lucide-react";
 
@@ -27,6 +28,7 @@ export function BenchmarksSection() {
   const [edit, setEdit] = useState<EditState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ benchmark: Benchmark; entryIndex: number } | null>(null);
 
   useEffect(() => {
     fetch("/api/benchmarks").then((response) => response.json()).then(setBenchmarks).catch(() => setBenchmarks([]));
@@ -57,8 +59,10 @@ export function BenchmarksSection() {
     setBusy(false);
   }
 
-  async function deleteEntry(benchmark: Benchmark, entryIndex: number) {
-    if (!window.confirm("Diesen falschen Testeintrag wirklich löschen?")) return;
+  async function confirmDeleteEntry() {
+    if (!pendingDelete) return;
+    const { benchmark, entryIndex } = pendingDelete;
+    setPendingDelete(null);
     setBusy(true);
     setError(null);
     const response = await fetch(`/api/benchmarks/${benchmark.id}/entries`, {
@@ -102,7 +106,7 @@ export function BenchmarksSection() {
                     <span className="text-sm text-muted">{new Date(`${entry.date}T12:00:00`).toLocaleDateString("de-DE")}</span>
                     <span className="font-semibold">{formatClock(entry.value)}</span>
                     {isBest && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Bestzeit</span>}
-                    <div className="ml-auto flex gap-1"><button onClick={() => setEdit({ benchmarkId: benchmark.id, entryIndex, date: entry.date, time: formatClock(entry.value) })} className="rounded-lg p-2 text-muted hover:bg-surface hover:text-accent" aria-label="Eintrag bearbeiten"><Pencil size={15} /></button><button disabled={busy} onClick={() => deleteEntry(benchmark, entryIndex)} className="rounded-lg p-2 text-muted hover:bg-negative/10 hover:text-negative" aria-label="Eintrag löschen"><Trash2 size={15} /></button></div>
+                    <div className="ml-auto flex gap-1"><button onClick={() => setEdit({ benchmarkId: benchmark.id, entryIndex, date: entry.date, time: formatClock(entry.value) })} className="rounded-lg p-2 text-muted hover:bg-surface hover:text-accent" aria-label="Eintrag bearbeiten"><Pencil size={15} /></button><button disabled={busy} onClick={() => setPendingDelete({ benchmark, entryIndex })} className="rounded-lg p-2 text-muted hover:bg-negative/10 hover:text-negative" aria-label="Eintrag löschen"><Trash2 size={15} /></button></div>
                   </>}
                 </div>;
               })}
@@ -111,6 +115,16 @@ export function BenchmarksSection() {
         })}
       </div>}
       {error && <p className="mt-3 text-sm text-negative">{error}</p>}
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Testeintrag löschen?"
+          message="Diesen falschen Testeintrag wirklich löschen?"
+          confirmLabel="Löschen"
+          busy={busy}
+          onConfirm={confirmDeleteEntry}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </Card>
   );
 }

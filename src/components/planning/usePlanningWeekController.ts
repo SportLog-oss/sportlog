@@ -23,6 +23,7 @@ export function usePlanningWeekController(initialWeek: PlanningWeek, initialMatc
   const [editingFocus, setEditingFocus] = useState(Boolean(initialWeek.focus));
   const [weekType, setWeekType] = useState<PlanningWeekType>(initialWeek.weekType);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingDuplicateWeek, setPendingDuplicateWeek] = useState<{ targetWeekStart: string; targetLabel: string } | null>(null);
 
   async function loadMatches(start: string) {
     const response = await fetch(`/api/planning/matches?start=${start}`);
@@ -68,10 +69,16 @@ export function usePlanningWeekController(initialWeek: PlanningWeek, initialMatc
     }
   }
 
-  async function duplicateWeek() {
+  function duplicateWeek() {
     const targetWeekStart = addDays(week.weekStart, 7);
     const targetLabel = `${planningDateLabel(targetWeekStart, { day: "numeric", month: "short" })} – ${planningDateLabel(addDays(targetWeekStart, 6), { day: "numeric", month: "short", year: "numeric" })}`;
-    if (!window.confirm(`Diese Woche nach ${targetLabel} kopieren? Ausgefallene Einheiten werden nicht übernommen.`)) return;
+    setPendingDuplicateWeek({ targetWeekStart, targetLabel });
+  }
+
+  async function confirmDuplicateWeek() {
+    if (!pendingDuplicateWeek) return;
+    const { targetWeekStart } = pendingDuplicateWeek;
+    setPendingDuplicateWeek(null);
     setDuplicating(true);
     setNotice(null);
     try {
@@ -114,5 +121,8 @@ export function usePlanningWeekController(initialWeek: PlanningWeek, initialMatc
     loadWeek,
     saveWeekContext,
     duplicateWeek,
+    pendingDuplicateWeek,
+    confirmDuplicateWeek,
+    cancelDuplicateWeek: () => setPendingDuplicateWeek(null),
   };
 }
