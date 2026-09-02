@@ -15,6 +15,8 @@ type PlanningSessionControllerOptions = {
 export function usePlanningSessionController({ weekStart, reloadWeek, setNotice }: PlanningSessionControllerOptions) {
   const [modal, setModal] = useState<SessionDraft | null>(null);
   const [modalSaving, setModalSaving] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<PlannedSession | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   function planSession(day = weekStart) {
     setModal(emptySessionDraft(day));
@@ -84,9 +86,16 @@ export function usePlanningSessionController({ weekStart, reloadWeek, setNotice 
     else await reloadWeek(weekStart);
   }
 
-  async function removeSession(session: PlannedSession) {
-    if (!window.confirm(`„${session.title}“ wirklich löschen? Ausgefallene Einheiten besser als ausgefallen markieren.`)) return;
-    const response = await fetch(`/api/planning/sessions/${session.id}`, { method: "DELETE" });
+  function removeSession(session: PlannedSession) {
+    setPendingRemoval(session);
+  }
+
+  async function confirmRemoveSession() {
+    if (!pendingRemoval) return;
+    setRemoving(true);
+    const response = await fetch(`/api/planning/sessions/${pendingRemoval.id}`, { method: "DELETE" });
+    setRemoving(false);
+    setPendingRemoval(null);
     if (!response.ok) setNotice(await planningResponseError(response));
     else await reloadWeek(weekStart);
   }
@@ -115,6 +124,10 @@ export function usePlanningSessionController({ weekStart, reloadWeek, setNotice 
     saveSession,
     updateStatus,
     removeSession,
+    pendingRemoval,
+    removing,
+    confirmRemoveSession,
+    cancelRemoveSession: () => setPendingRemoval(null),
     duplicateSession,
   };
 }

@@ -10,6 +10,8 @@ import { ReflectionDialog, type ImportedReflection, type ReflectionDraft, type R
 import { SessionDetailDrawer } from "@/components/planning/SessionDetailDrawer";
 import { emptyRegattaDraft, RegattaDialog, type RegattaDraft } from "@/components/planning/RegattaDialog";
 import { WeekSchedule } from "@/components/planning/WeekSchedule";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import type { CoachHint } from "@/lib/today";
 import { planningResponseError, usePlanningWeekController } from "@/components/planning/usePlanningWeekController";
 import { usePlanningSessionController } from "@/components/planning/usePlanningSessionController";
 import {
@@ -26,13 +28,17 @@ import {
   WEEK_TYPES,
 } from "@/lib/planningPresentation";
 
-export function WeekPlanner({ initialWeek, initialMatches, initialCompetitions }: { initialWeek: PlanningWeek; initialMatches: PlanningWorkoutMatch[]; initialCompetitions: CompetitionResult[] }) {
+export function WeekPlanner({ initialWeek, initialMatches, initialCompetitions, coachHint }: { initialWeek: PlanningWeek; initialMatches: PlanningWorkoutMatch[]; initialCompetitions: CompetitionResult[]; coachHint: CoachHint | null }) {
   const {
     week, matches, loading, savingContext, duplicating, focus, setFocus,
     editingFocus, setEditingFocus, weekType, setWeekType, notice, setNotice,
     loadMatches, loadWeek, saveWeekContext, duplicateWeek,
+    pendingDuplicateWeek, confirmDuplicateWeek, cancelDuplicateWeek,
   } = usePlanningWeekController(initialWeek, initialMatches);
-  const { modal, setModal, modalSaving, planSession, editSession, reviewAdaptation, saveSession, updateStatus, removeSession, duplicateSession } = usePlanningSessionController({ weekStart: week.weekStart, reloadWeek: loadWeek, setNotice });
+  const {
+    modal, setModal, modalSaving, planSession, editSession, reviewAdaptation, saveSession, updateStatus, removeSession, duplicateSession,
+    pendingRemoval, removing, confirmRemoveSession, cancelRemoveSession,
+  } = usePlanningSessionController({ weekStart: week.weekStart, reloadWeek: loadWeek, setNotice });
   const [reflectionModal, setReflectionModal] = useState<ReflectionDraft | null>(null);
   const [reflectionSaving, setReflectionSaving] = useState(false);
   const [reviewLog, setReviewLog] = useState<ReflectionReviewLog>({ pain: [], injury: false, soreness: null, rpe: null, notes: "" });
@@ -224,6 +230,7 @@ export function WeekPlanner({ initialWeek, initialMatches, initialCompetitions }
         days={days}
         sessions={week.sessions}
         matches={matches}
+        coachHint={coachHint}
         onPlan={planSession}
         onOpen={(session) => setDetailSessionId(session.id)}
         onEdit={editSession}
@@ -238,6 +245,29 @@ export function WeekPlanner({ initialWeek, initialMatches, initialCompetitions }
 
       {detailSession && (
         <SessionDetailDrawer session={detailSession} matches={detailMatches} weekSessions={week.sessions} onClose={() => setDetailSessionId(null)} onEdit={editSession} onDuplicate={duplicateSession} onDecideMatch={decideMatch} onOpenReflection={openReflection} onRemoveMatch={removeMatch} onReviewAdaptation={reviewAdaptation} />
+      )}
+
+      {pendingDuplicateWeek && (
+        <ConfirmDialog
+          title="Woche kopieren?"
+          message={`Diese Woche nach ${pendingDuplicateWeek.targetLabel} kopieren? Ausgefallene Einheiten werden nicht übernommen.`}
+          confirmLabel="Kopieren"
+          danger={false}
+          busy={duplicating}
+          onConfirm={confirmDuplicateWeek}
+          onCancel={cancelDuplicateWeek}
+        />
+      )}
+
+      {pendingRemoval && (
+        <ConfirmDialog
+          title="Einheit löschen?"
+          message={`„${pendingRemoval.title}“ wirklich löschen? Ausgefallene Einheiten besser als ausgefallen markieren.`}
+          confirmLabel="Löschen"
+          busy={removing}
+          onConfirm={confirmRemoveSession}
+          onCancel={cancelRemoveSession}
+        />
       )}
 
       {modal && (

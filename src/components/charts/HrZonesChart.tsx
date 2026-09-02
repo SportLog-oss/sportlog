@@ -1,14 +1,7 @@
 "use client";
 
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
-
-const ZONE_COLORS: Record<string, string> = {
-  z1: "#60a5fa",
-  z2: "#34d399",
-  z3: "#fbbf24",
-  z4: "#fb923c",
-  z5: "#f87171",
-};
+import { HR_ZONE_COLORS } from "@/lib/hrZoneColors";
 
 const ZONE_LABELS: Record<string, string> = {
   z1: "Z1 Locker",
@@ -39,7 +32,7 @@ export function HrZonesChart({ zones }: { zones: Record<string, { hours: number;
         />
         <Bar dataKey="pct" radius={[0, 4, 4, 0]}>
           {data.map((d) => (
-            <Cell key={d.key} fill={ZONE_COLORS[d.key] ?? "var(--accent)"} />
+            <Cell key={d.key} fill={HR_ZONE_COLORS[d.key as keyof typeof HR_ZONE_COLORS] ?? "var(--accent)"} />
           ))}
         </Bar>
       </BarChart>

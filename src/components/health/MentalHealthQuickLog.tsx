@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { TrendChart } from "@/components/charts/TrendChart";
 import { CheckCircle2 } from "lucide-react";
 import type { MentalHealthCheckin } from "@/lib/types";
 
@@ -23,31 +22,82 @@ const EMOTION_TAGS = [
 
 const INFLUENCE_TAGS = ["Training", "Wettkampf", "Schlaf", "Gesundheit", "Arbeit/Schule", "Beziehungen", "Erholung", "Sonstiges"];
 
-function valenceColor(v: number): { from: string; to: string; label: string } {
-  if (v <= -0.5) return { from: "#1e3a5f", to: "#3b82f6", label: "Sehr unangenehm" };
-  if (v < -0.15) return { from: "#1f4a5f", to: "#38bdf8", label: "Unangenehm" };
-  if (v <= 0.15) return { from: "#2a3038", to: "#8b96a5", label: "Neutral" };
-  if (v < 0.5) return { from: "#4a3a1a", to: "#fbbf24", label: "Angenehm" };
-  return { from: "#4a2f0a", to: "#f59e0b", label: "Sehr angenehm" };
+function valenceLabel(v: number): string {
+  if (v <= -0.5) return "Sehr unangenehm";
+  if (v < -0.15) return "Unangenehm";
+  if (v <= 0.15) return "Neutral";
+  if (v < 0.5) return "Angenehm";
+  return "Sehr angenehm";
 }
 
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function lerpColor(from: [number, number, number], to: [number, number, number], t: number): string {
+  return `rgb(${Math.round(lerp(from[0], to[0], t))}, ${Math.round(lerp(from[1], to[1], t))}, ${Math.round(lerp(from[2], to[2], t))})`;
+}
+
+// Same closed-blob point count on every render (only the radius per point changes), which is what
+// lets the browser smoothly transition the SVG path's `d` attribute between valence values instead
+// of jumping — see the `transition: "d 300ms ..."` below.
+const BLOB_POINTS = 48;
+
+// Apple-Health-Prinzip übernommen (Konzept 005, Ergänzung 2/"Update 01.09.2026"): die Form wird bei
+// niedriger Valenz rund/gedämpft und bei hoher Valenz strahlig/blütenförmig — aber vollständig in
+// SportLogs Teal-Palette statt Apples Blau-bis-Gold-Skala. "sehr unangenehm" bis "sehr angenehm".
+function blobPath(valence: number): string {
+  const t = (valence + 1) / 2; // 0..1
+  const radius = 34;
+  const petals = Math.round(lerp(5, 9, t));
+  const amplitude = lerp(0.035, 0.24, t) * radius;
+  const points: { x: number; y: number }[] = [];
+  for (let i = 0; i < BLOB_POINTS; i++) {
+    const angle = (i / BLOB_POINTS) * Math.PI * 2;
+    const r = radius + amplitude * Math.sin(angle * petals);
+    points.push({ x: 50 + r * Math.cos(angle), y: 50 + r * Math.sin(angle) });
+  }
+  const start = { x: (points[0].x + points[points.length - 1].x) / 2, y: (points[0].y + points[points.length - 1].y) / 2 };
+  let d = `M ${start.x} ${start.y}`;
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    d += ` Q ${p1.x} ${p1.y} ${mid.x} ${mid.y}`;
+  }
+  return `${d} Z`;
+}
+
+const BLOB_EDGE_LOW: [number, number, number] = [12, 43, 41];
+const BLOB_EDGE_HIGH: [number, number, number] = [37, 216, 207];
+const BLOB_CORE_LOW: [number, number, number] = [32, 84, 79];
+const BLOB_CORE_HIGH: [number, number, number] = [214, 255, 250];
+
 function MoodOrb({ value }: { value: number }) {
-  const { from, to, label } = valenceColor(value);
+  const t = (value + 1) / 2;
+  const edge = lerpColor(BLOB_EDGE_LOW, BLOB_EDGE_HIGH, t);
+  const core = lerpColor(BLOB_CORE_LOW, BLOB_CORE_HIGH, t);
+  const glow = lerp(8, 34, t);
   return (
     <div className="flex flex-col items-center gap-3">
-      <div
-        className="w-32 h-32 rounded-full transition-colors duration-500"
-        style={{
-          background: `radial-gradient(circle at 40% 35%, ${to}, ${from} 70%)`,
-          boxShadow: `0 0 40px 6px ${to}55`,
-          animation: "sportlog-mood-pulse 3.2s ease-in-out infinite",
-        }}
-      />
-      <p className="text-sm font-medium text-foreground">{label}</p>
+      <svg viewBox="0 0 100 100" className="h-36 w-36 animate-[sportlog-mood-pulse_3.2s_ease-in-out_infinite]">
+        <defs>
+          <radialGradient id="sportlog-mood-fill" cx="42%" cy="38%" r="65%">
+            <stop offset="0%" stopColor={core} />
+            <stop offset="100%" stopColor={edge} />
+          </radialGradient>
+        </defs>
+        <path
+          d={blobPath(value)}
+          fill="url(#sportlog-mood-fill)"
+          style={{ transition: "d 300ms ease-out, filter 300ms ease-out", filter: `drop-shadow(0 0 ${glow}px ${edge}99)` }}
+        />
+      </svg>
+      <p className="text-sm font-medium text-foreground">{valenceLabel(value)}</p>
       <style>{`
         @keyframes sportlog-mood-pulse {
-          0%, 100% { transform: scale(1); opacity: 0.92; }
-          50% { transform: scale(1.06); opacity: 1; }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.035); }
         }
       `}</style>
     </div>
@@ -166,7 +216,10 @@ function ScaleSlider({ label, value, onChange }: { label: string; value: number;
   );
 }
 
-export function MentalHealthSection() {
+/** Erfassen-Formulare für mentale Check-ins (Konzept 005: die tägliche Eingabe lebt im globalen
+ * Befinden-erfassen-Panel und in Heute/Profil, nicht mehr auf der Gesundheit-Seite selbst — dort
+ * gibt es nur noch den Verlauf, siehe MentalHealthHistorySection). */
+export function MentalHealthQuickLog() {
   const [checkins, setCheckins] = useState<MentalHealthCheckin[]>([]);
   const [loading, setLoading] = useState(true);
   const [valence, setValence] = useState(0);
@@ -209,11 +262,6 @@ export function MentalHealthSection() {
   }
 
   if (loading) return null;
-
-  const trendData = [...checkins]
-    .reverse()
-    .slice(-30)
-    .map((c) => ({ date: c.timestamp.slice(0, 10), valence: +c.valence.toFixed(2) }));
 
   return (
     <div className="space-y-6">
@@ -290,30 +338,6 @@ export function MentalHealthSection() {
           </div>
         </div>
       </Card>
-
-      {trendData.length > 1 && (
-        <Card title="Verlauf" subtitle="Valenz der letzten Check-ins (-1 bis 1)">
-          <TrendChart data={trendData} lines={[{ key: "valence", color: "var(--accent)", name: "Valenz" }]} referenceLine={0} />
-        </Card>
-      )}
-
-      {checkins.length > 0 && (
-        <Card title="Letzte Check-ins">
-          <div className="space-y-2">
-            {checkins.slice(0, 10).map((c) => (
-              <div key={c.id} className="flex items-center gap-3 text-sm">
-                <span className="text-xs text-muted w-32 shrink-0">{new Date(c.timestamp).toLocaleString("de-DE")}</span>
-                <span className="flex-1">
-                  {c.type === "mood"
-                    ? `Täglicher Check-in — Motivation ${c.motivation ?? "–"}, Stress ${c.stress ?? "–"}, Energie ${c.energy ?? "–"}, Schlaf ${c.sleepQuality ?? "–"}`
-                    : c.emotionTags.join(", ") || "–"}
-                </span>
-                <span className="text-xs text-muted">{c.valence.toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

@@ -1,14 +1,16 @@
 "use client";
 
-import { CalendarDays, CheckCircle2, ChevronRight, CircleOff, ClipboardList, Copy, Pencil, Plus, RotateCcw, Trash2, Trophy } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronRight, CircleOff, ClipboardList, Copy, Pencil, Plus, RotateCcw, Sparkles, Trash2, Trophy } from "lucide-react";
 import clsx from "clsx";
 import type { PlannedSession, PlanningWorkoutMatch } from "@/lib/planning";
+import type { CoachHint } from "@/lib/today";
 import { INTENSITIES, planningDateLabel } from "@/lib/planningPresentation";
 
 type WeekScheduleProps = {
   days: string[];
   sessions: PlannedSession[];
   matches: PlanningWorkoutMatch[];
+  coachHint: CoachHint | null;
   onPlan: (day: string) => void;
   onOpen: (session: PlannedSession) => void;
   onEdit: (session: PlannedSession) => void;
@@ -17,7 +19,7 @@ type WeekScheduleProps = {
   onRemove: (session: PlannedSession) => void;
 };
 
-export function WeekSchedule({ days, sessions, matches, onPlan, onOpen, onEdit, onDuplicate, onToggleStatus, onRemove }: WeekScheduleProps) {
+export function WeekSchedule({ days, sessions, matches, coachHint, onPlan, onOpen, onEdit, onDuplicate, onToggleStatus, onRemove }: WeekScheduleProps) {
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" });
 
   return (
@@ -41,6 +43,12 @@ export function WeekSchedule({ days, sessions, matches, onPlan, onOpen, onEdit, 
                 return (
                   <div key={session.id} className={clsx("group rounded-xl border border-border bg-surface-raised p-3", session.status === "cancelled" && "opacity-55")}>
                     <button type="button" onClick={() => onOpen(session)} className="flex w-full items-start gap-2 text-left">{session.raceId ? <Trophy size={15} className="mt-0.5 shrink-0 text-fuchsia-300" /> : <span className={clsx("mt-1.5 h-2 w-2 shrink-0 rounded-full", intensity?.color ?? "bg-muted")} />}<div className="min-w-0 flex-1"><p className={clsx("text-sm font-semibold leading-snug", session.status === "cancelled" && "line-through")}>{session.title}</p><p className={clsx("mt-1 text-xs", session.raceId ? "font-semibold text-fuchsia-300" : "text-muted")}>{session.raceId ? "Regatta" : session.sportType}{session.plannedDurationMin ? ` · ${session.plannedDurationMin} min` : ""}</p>{session.description && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted">{session.description}</p>}</div><ChevronRight size={15} className="mt-0.5 shrink-0 text-muted" /></button>
+                    {isToday && coachHint && session.status !== "cancelled" && (
+                      <div className={clsx("mt-2 flex items-start gap-1.5 rounded-lg border px-2 py-1.5 text-[11px] leading-snug", coachHint.tone === "risk" ? "border-negative/30 bg-negative/10 text-negative" : "border-accent/30 bg-accent-soft text-accent")}>
+                        <span title="KI-Einschätzung"><Sparkles size={12} className="mt-0.5 shrink-0" /></span>
+                        <span>{coachHint.text}</span>
+                      </div>
+                    )}
                     <div className="mt-3 flex items-center gap-1 border-t border-border pt-2 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100 xl:group-focus-within:opacity-100">
                       <button aria-label="Bearbeiten" onClick={() => onEdit(session)} className="rounded p-1 text-muted hover:text-accent"><Pencil size={14} /></button>
                       <button aria-label="Einheit duplizieren" onClick={() => onDuplicate(session)} className="rounded p-1 text-muted hover:text-accent"><Copy size={14} /></button>

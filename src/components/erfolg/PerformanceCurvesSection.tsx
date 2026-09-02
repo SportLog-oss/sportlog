@@ -31,7 +31,7 @@ export function PerformanceCurvesSection() {
           <CurveChart points={curves.power.points} color="var(--accent)" unit="W" />
         </Card>
         <Card title="Lauftempo" subtitle="Beste Pace nach Belastungsdauer">
-          <CurveChart points={curves.pace.points} color="var(--positive)" unit="s/km" />
+          <CurveChart points={curves.pace.points} color="#8ffbef" unit="s/km" />
         </Card>
       </div>
     </section>

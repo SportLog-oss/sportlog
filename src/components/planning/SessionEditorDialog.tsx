@@ -62,7 +62,7 @@ export function SessionEditorDialog({
           </label>
           <label className="text-sm">
             <span className="mb-1.5 block text-muted">Dauer in Minuten</span>
-            <input type="number" min="1" max="1440" value={draft.plannedDurationMin} onChange={(event) => onChange({ ...draft, plannedDurationMin: event.target.value })} placeholder="60" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none focus:border-accent" />
+            <input type="number" min="1" max="1440" value={draft.plannedDurationMin} onChange={(event) => onChange({ ...draft, plannedDurationMin: event.target.value })} placeholder="z. B. 60" className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none focus:border-accent" />
           </label>
           <label className="text-sm">
             <span className="mb-1.5 block text-muted">Intensität</span>

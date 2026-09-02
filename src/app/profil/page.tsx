@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, LogOut, Ruler, ShieldCheck, User } from "lucide-react";
+import { CheckCircle2, LogOut, Ruler, ShieldCheck } from "lucide-react";
 import { PageShell } from "@/components/layout/PageShell";
 import { Card } from "@/components/ui/Card";
 import { ReminderSettingsCard } from "@/components/ReminderSettingsCard";
 import { WeightHistoryCard } from "@/components/health/WeightHistoryCard";
 import { localIsoDate } from "@/lib/format";
 import { AthleteDataSyncCard } from "@/components/profile/AthleteDataSyncCard";
+import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import { AccountSection } from "@/components/profile/AccountSection";
+import { GoogleCalendarCard } from "@/components/profile/GoogleCalendarCard";
 import type { Profile, ProfileFieldName } from "@/lib/types";
 
 function numOrNull(v: string): number | null {
@@ -98,6 +101,8 @@ export default function ProfilPage() {
 
   return (
     <PageShell title="Profil" subtitle="Stammdaten, Erinnerungen und Konto">
+      {profile && <ProfileHeader profile={profile} />}
+
       <div className="grid md:grid-cols-2 gap-6">
         <Card title="Stammdaten">
           {!profile ? (
@@ -129,14 +134,19 @@ export default function ProfilPage() {
           <div className="space-y-3">
             <SettingsRow icon={Ruler} label="Einheiten" value="Metrisch (km, kg)" />
             <SettingsRow icon={ShieldCheck} label="Datenschutz" value="Daten werden nur für dich gespeichert" />
-            <SettingsRow icon={User} label="Konto" value="Einzelbenutzer-Zugang" />
           </div>
         </Card>
 
         <ReminderSettingsCard />
 
+        <Suspense fallback={null}>
+          <GoogleCalendarCard />
+        </Suspense>
+
         <WeightHistoryCard />
       </div>
+
+      {profile && <AccountSection profile={profile} onUpdate={setProfile} />}
 
       <button
         onClick={logout}

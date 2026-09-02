@@ -10,6 +10,7 @@ import type {
   CurvesCache,
   DailyMetricsCache,
   Goal,
+  GoogleCalendarConnection,
   IllnessLogEntry,
   InjuryRiskCache,
   MentalHealthCheckin,
@@ -37,6 +38,7 @@ import {
   calendarEventToRow,
   competitionToRow,
   goalToRow,
+  googleCalendarConnectionToRow,
   illnessLogEntryToRow,
   mentalHealthCheckinToRow,
   profileToRow,
@@ -49,6 +51,7 @@ import {
   rowToCompetition,
   rowToCompetitionRace,
   rowToGoal,
+  rowToGoogleCalendarConnection,
   rowToIllnessLogEntry,
   rowToMentalHealthCheckin,
   rowToPersonalBest,
@@ -559,11 +562,23 @@ export async function deleteWorkout(id: string): Promise<void> {
 // Athlete profile (Stammdaten)
 // ===============================================================================================
 
+async function attachAccountFields(supabase: Awaited<ReturnType<typeof getSupabaseForRequest>>, profile: Profile): Promise<Profile> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let avatarUrl: string | null = null;
+  if (profile.avatarPath) {
+    const { data: signed } = await supabase.storage.from("avatars").createSignedUrl(profile.avatarPath, 3600);
+    avatarUrl = signed?.signedUrl ?? null;
+  }
+  return { ...profile, email: user?.email ?? null, avatarUrl };
+}
+
 export async function getProfile(): Promise<Profile> {
   const supabase = await getSupabaseForRequest();
   const { data, error } = await supabase.from("profiles").select("*").single();
   if (error) throw error;
-  return rowToProfile(data);
+  return attachAccountFields(supabase, rowToProfile(data));
 }
 
 export async function updateProfile(patch: Partial<Profile>): Promise<Profile> {
@@ -579,7 +594,7 @@ export async function updateProfile(patch: Partial<Profile>): Promise<Profile> {
     .select()
     .single();
   if (error) throw error;
-  return rowToProfile(data);
+  return attachAccountFields(supabase, rowToProfile(data));
 }
 
 export async function saveImportedProfileValues(
@@ -632,8 +647,9 @@ export async function recordWeight(
 }
 
 // ===============================================================================================
-// Kalenderkontext V1 (read-only). Events are mirrored from AthleteData's Apple/Google calendar
-// tools by src/lib/calendarSync.ts and never created or edited by the user in SportLog itself.
+// Kalenderkontext V1 (read-only). Google events are mirrored via SportLog's own direct Google
+// OAuth connection (Teil 7, src/lib/googleCalendar.ts) — never created or edited by the user in
+// SportLog itself.
 // ===============================================================================================
 
 export async function upsertCalendarEvents(events: Omit<CalendarEvent, "id">[]): Promise<void> {
@@ -647,11 +663,13 @@ export async function upsertCalendarEvents(events: Omit<CalendarEvent, "id">[]):
 }
 
 /** At most the next upcoming event that is neither cancelled, declined, nor marked free/available. */
-// "Heute" only ever surfaces the next *sportrelevant* appointment (Training, ggf. Physio/Reha) —
-// school/work/life-admin events never belong there (Konzept 004). There's no category column on
-// calendar_events, so relevance is judged by title keywords rather than by calendar name (the
-// same event source can mix personal and sport entries under one calendar).
-const SPORT_RELEVANT_TITLE_KEYWORDS = ["training", "physio", "reha"];
+// "Heute" only ever surfaces the next *sportrelevant* appointment — Training & Einheiten, Physio &
+// Behandlung, Bootshaus & Wasserzeiten, Vereinstermine & Regatten (Konzept 004 plus die Ergänzung
+// vom 31.08.2026, die Bootshaus-/Vereinstermine ausdrücklich mit einschließt). School/work/life-
+// admin events never belong there. There's no category column on calendar_events, so relevance is
+// judged by title keywords rather than by calendar name (the same event source can mix personal
+// and sport entries under one calendar).
+const SPORT_RELEVANT_TITLE_KEYWORDS = ["training", "physio", "reha", "behandlung", "bootshaus", "wasserzeit", "verein", "regatta", "team"];
 
 export async function getNextRelevantCalendarEvent(): Promise<CalendarEvent | null> {
   const supabase = await getSupabaseForRequest();
@@ -670,4 +688,46 @@ export async function getNextRelevantCalendarEvent(): Promise<CalendarEvent | nu
     .maybeSingle();
   if (error) throw error;
   return data ? rowToCalendarEvent(data) : null;
+}
+
+// ===============================================================================================
+// Google-Calendar-OAuth-Verbindung (Teil 7) — ein Token-Paar pro Nutzer.
+// ===============================================================================================
+
+export async function getGoogleCalendarConnection(): Promise<GoogleCalendarConnection | null> {
+  const supabase = await getSupabaseForRequest();
+  const { data, error } = await supabase.from("google_calendar_connections").select("*").maybeSingle();
+  if (error) throw error;
+  return data ? rowToGoogleCalendarConnection(data) : null;
+}
+
+/** A partial patch is only safe as an upsert because every caller either supplies the full,
+ * NOT NULL token fields (initial connect) or only ever patches a row that's already known to
+ * exist (refresh / needsReauth) — Postgres' ON CONFLICT DO UPDATE only touches the given
+ * columns, but a fresh INSERT would fail NOT NULL on anything omitted. Don't call this with a
+ * partial patch unless the row is already confirmed to exist. */
+export async function saveGoogleCalendarConnection(patch: Partial<GoogleCalendarConnection>): Promise<GoogleCalendarConnection> {
+  const supabase = await getSupabaseForRequest();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const row = { ...googleCalendarConnectionToRow(patch), user_id: user.id, updated_at: new Date().toISOString() };
+  const { data, error } = await supabase
+    .from("google_calendar_connections")
+    .upsert(row, { onConflict: "user_id" })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToGoogleCalendarConnection(data);
+}
+
+export async function deleteGoogleCalendarConnection(): Promise<void> {
+  const supabase = await getSupabaseForRequest();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { error } = await supabase.from("google_calendar_connections").delete().eq("user_id", user.id);
+  if (error) throw error;
 }

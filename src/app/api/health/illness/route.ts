@@ -26,6 +26,8 @@ export async function POST(req: NextRequest) {
     notes: body.notes ?? "",
     createdAt: now,
     updatedAt: now,
+    linkedSessionId: null,
+    linkedSessionDismissed: false,
   };
 
   entries.push(newEntry);

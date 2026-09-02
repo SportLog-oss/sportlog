@@ -3,16 +3,19 @@ import {
   finishAthleteDataSync,
   finishActivityPush,
   getActivities,
+  getGoogleCalendarConnection,
   getReminderPreferences,
   claimActivityPush,
   releaseActivityPush,
   saveCacheEntry,
+  saveGoogleCalendarConnection,
   saveImportedProfileValues,
   startAthleteDataSync,
   upsertCalendarEvents,
   upsertPersonalBestIfBetter,
 } from "@/lib/data/store";
-import { mapGoogleEvent, type GoogleCalendarResponse } from "@/lib/calendarSync";
+import { mapGoogleEvent } from "@/lib/calendarSync";
+import { fetchGoogleCalendarEvents, GoogleReauthRequiredError, refreshGoogleAccessToken } from "@/lib/googleCalendar";
 import { generateTodayRecommendation, generateWarnings } from "@/lib/insights";
 import { findPersonalBestCandidates, PB_CATEGORY_META } from "@/lib/personalBests";
 import { sendPushToAll } from "@/lib/push";
@@ -149,10 +152,36 @@ async function performSync({ notify, scope }: { notify: boolean; scope: SyncScop
         data: await callAthleteDataTool("garmin_get_user_metrics"),
       })),
       sync<{ fetchedAt: string; count: number }>("calendar-google", async () => {
-        // Without time_min, the tool returns events sorted from the earliest ever recorded
+        // Teil 7: SportLog's own direct Google OAuth connection, not AthleteData — nothing to do
+        // if Marcel hasn't connected it (or has disconnected it) on the Profil page.
+        const connection = await getGoogleCalendarConnection();
+        if (!connection) return { fetchedAt: now, count: 0 };
+
+        let accessToken = connection.accessToken;
+        if (new Date(connection.tokenExpiresAt).getTime() <= Date.now() + 60_000) {
+          try {
+            const refreshed = await refreshGoogleAccessToken(connection.refreshToken);
+            accessToken = refreshed.access_token;
+            await saveGoogleCalendarConnection({
+              accessToken,
+              tokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
+              needsReauth: false,
+            });
+          } catch (error) {
+            if (error instanceof GoogleReauthRequiredError) {
+              // Testing-mode refresh tokens expire after 7 days — surface a re-connect hint on
+              // the Profil page instead of a silent, recurring sync failure.
+              await saveGoogleCalendarConnection({ needsReauth: true });
+              return { fetchedAt: now, count: 0 };
+            }
+            throw error;
+          }
+        }
+
+        // Without time_min, the API returns events sorted from the earliest ever recorded
         // (old recurring birthdays etc.), not upcoming ones — Kalenderkontext V1 only cares
         // about what's ahead of now.
-        const response = await callAthleteDataTool<GoogleCalendarResponse>("google_calendar_get_events", { time_min: now });
+        const response = await fetchGoogleCalendarEvents(accessToken, now);
         const rows = (response.items ?? []).map((event) => mapGoogleEvent(event, response.summary, now));
         await upsertCalendarEvents(rows);
         return { fetchedAt: now, count: rows.length };

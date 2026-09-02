@@ -1,6 +1,6 @@
 import { getActivities, getAnomalies, getAthleteDataSyncStatus, getDailyMetrics, getIllnessLog, getInjuryRisk, getNextRelevantCalendarEvent } from "@/lib/data/store";
 import { computeSleepPerformance, computeStrain, generateWarnings, type Warning } from "@/lib/insights";
-import type { Activity, CalendarEvent } from "@/lib/types";
+import type { Activity, CalendarEvent, DailyMetricRow } from "@/lib/types";
 import { getPlanningWeek } from "@/lib/data/planningStore";
 import { mondayForDate, type PlannedSession } from "@/lib/planning";
 import { getPlanningMatches } from "@/lib/data/planningMatchStore";
@@ -36,6 +36,33 @@ export function loadZustandStatus(load: number): ZustandStatus {
   if (load >= 8) return "risk";
   if (load >= 4) return "watch";
   return "good";
+}
+
+/** Same lookup buildTodayResponse uses for the Erholung tile — kept as one shared source so the
+ * Plan-Konflikt-Hinweis reads the identical recovery value instead of recomputing it. */
+export function deriveRecoveryPct(rows: DailyMetricRow[]): number | null {
+  const lastWithRecovery = [...rows].reverse().find((row) => row.recoveryScore !== null);
+  return lastWithRecovery?.recoveryScore ?? null;
+}
+
+export async function getCurrentRecoveryPct(): Promise<number | null> {
+  const daily = await getDailyMetrics();
+  return deriveRecoveryPct(daily.rows);
+}
+
+export type CoachHint = { tone: "risk" | "good"; text: string };
+
+/** Coach-Konflikt-Hinweis (Konzept 003 "Plan"): nur für heutige Einheiten, weil Erholung nur für
+ * heute als echter Messwert vorliegt — für künftige Tage gäbe es keinen belastbaren Wert zum
+ * Vergleichen. Bei "watch" bzw. fehlendem Wert bleibt es bewusst still, um nicht zu überladen.
+ * Computed server-side (not exported for client import) because ZustandStatus thresholds live here
+ * alongside the rest of the Erholungs-Ampel-Logik. */
+export function todayCoachHint(recoveryPct: number | null): CoachHint | null {
+  if (recoveryPct === null) return null;
+  const status = recoveryZustandStatus(recoveryPct);
+  if (status === "risk") return { tone: "risk", text: `Erholung heute niedrig (${Math.round(recoveryPct)} %) — prüfe, ob die Einheit angepasst werden sollte.` };
+  if (status === "good") return { tone: "good", text: "Passt gut zu deinem aktuellen Zustand." };
+  return null;
 }
 
 export type TodayReason = { label: string; detail: string; tone: "positive" | "neutral" | "warning" | "critical" };
@@ -114,10 +141,9 @@ export async function buildTodayResponse(): Promise<TodayResponse> {
     getNextRelevantCalendarEvent().catch(() => null),
   ]);
   const rows = daily.rows;
-  const lastWithRecovery = [...rows].reverse().find((row) => row.recoveryScore !== null);
   const lastWithLoad = [...rows].reverse().find((row) => row.dailyLoad !== null);
   const lastWithSleep = [...rows].reverse().find((row) => row.sleepDurationMin !== null && row.sleepNeedMin !== null);
-  const recoveryPct = lastWithRecovery?.recoveryScore ?? null;
+  const recoveryPct = deriveRecoveryPct(rows);
   const sleepPerformance = computeSleepPerformance(lastWithSleep?.sleepDurationMin, lastWithSleep?.sleepNeedMin);
   const activeIllness = illnesses.find((entry) => entry.startDate <= today && (entry.endDate === null || entry.endDate >= today));
   const fetchedAtMs = new Date(daily.fetchedAt).getTime();
