@@ -267,10 +267,10 @@ export type CompetitionRace = {
 export type CalendarEventSource = "apple" | "google";
 
 /**
- * Read-only calendar context (Kalenderkontext V1). Never created by the
- * user in SportLog itself — mirrors what AthleteData exposes from Apple
- * Calendar and Google Calendar so the plan can show conflicts and free
- * time without turning a personal appointment into training data.
+ * Read-only calendar context (Kalenderkontext V1). Never created by the user in SportLog
+ * itself — mirrors external calendars so the plan can show conflicts and free time without
+ * turning a personal appointment into training data. `source: "google"` rows come from
+ * SportLog's own direct Google OAuth connection (Teil 7), not from AthleteData.
  */
 export type CalendarEvent = {
   id: string;
@@ -289,6 +289,22 @@ export type CalendarEvent = {
   selfResponse: string | null;
   lastSyncedAt: string;
 };
+
+/** Server-internal only — access/refresh tokens never leave the backend, see
+ * GoogleCalendarStatus for what the Profil-Karte actually receives. */
+export type GoogleCalendarConnection = {
+  googleEmail: string | null;
+  accessToken: string;
+  refreshToken: string;
+  tokenExpiresAt: string;
+  needsReauth: boolean;
+  connectedAt: string;
+  updatedAt: string;
+};
+
+export type GoogleCalendarStatus =
+  | { connected: false }
+  | { connected: true; googleEmail: string | null; connectedAt: string; needsReauth: boolean };
 
 export type Goal = {
   id: string;
@@ -376,6 +392,11 @@ export type IllnessLogEntry = {
   notes: string;
   createdAt: string;
   updatedAt: string;
+  /** Manual confirmation/correction of the betroffene Trainingseinheit (Konzept 005, Ergänzung 3).
+   * null = undecided, UI computes an automatic date-proximity suggestion. */
+  linkedSessionId: string | null;
+  /** true = user explicitly rejected the automatic suggestion without picking a replacement. */
+  linkedSessionDismissed: boolean;
 };
 
 export type TrainingLogEntry = {
@@ -503,6 +524,17 @@ export type Profile = {
   ftpWatts: number | null;
   importedValues: Partial<Record<ProfileFieldName, ProfileImportedValue>>;
   fieldSources: Partial<Record<ProfileFieldName, "manual" | "Garmin / AthleteData">>;
+  /** Kopfbereich der Profilseite (Konzept: Profil Web) — frei editierbar, kein AthleteData-Import. */
+  displayName: string | null;
+  sportType: string | null;
+  club: string | null;
+  trainerName: string | null;
+  /** Storage-Objektpfad "<user_id>/avatar.<ext>", nicht direkt anzeigbar. */
+  avatarPath: string | null;
+  /** Zeitlich befristete signierte URL, serverseitig aus avatarPath erzeugt — nie direkt speichern. */
+  avatarUrl: string | null;
+  /** Aus Supabase Auth, nicht aus profiles — nur zur Anzeige, Änderung läuft über /api/profile/email. */
+  email: string | null;
 };
 
 export type ProfileFieldName = "weightKg" | "hrRest" | "hrMax" | "vo2max" | "ftpWatts";

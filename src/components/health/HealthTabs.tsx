@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { IllnessLogSection } from "@/components/health/IllnessLogSection";
-import { MentalHealthSection } from "@/components/health/MentalHealthSection";
+import { useState } from "react";
+import { IllnessHistorySection } from "@/components/health/IllnessHistorySection";
+import { MentalHealthHistorySection } from "@/components/health/MentalHealthHistorySection";
+import { WeightHistoryCard } from "@/components/health/WeightHistoryCard";
+import type { PlannedSession } from "@/lib/planning";
 
-const TABS = ["Übersicht", "Krankheiten", "Mentale Gesundheit"] as const;
+const TABS = ["Krankheit und Schmerzen", "Mentale Check-ins", "Gewichtsverlauf"] as const;
 type Tab = (typeof TABS)[number];
 
-export function HealthTabs({ overview, initialTab = "Übersicht" }: { overview: ReactNode; initialTab?: Tab }) {
-  const [tab, setTab] = useState<Tab>(initialTab);
+export function HealthTabs({ sessions }: { sessions: PlannedSession[] }) {
+  const [tab, setTab] = useState<Tab>("Krankheit und Schmerzen");
 
   return (
     <div className="space-y-6">
@@ -26,9 +28,9 @@ export function HealthTabs({ overview, initialTab = "Übersicht" }: { overview: 
         ))}
       </div>
 
-      {tab === "Übersicht" && overview}
-      {tab === "Krankheiten" && <IllnessLogSection />}
-      {tab === "Mentale Gesundheit" && <MentalHealthSection />}
+      {tab === "Krankheit und Schmerzen" && <IllnessHistorySection sessions={sessions} />}
+      {tab === "Mentale Check-ins" && <MentalHealthHistorySection />}
+      {tab === "Gewichtsverlauf" && <WeightHistoryCard />}
     </div>
   );
 }

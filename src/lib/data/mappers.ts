@@ -13,6 +13,7 @@ import type {
   CompetitionRace,
   CompetitionResult,
   Goal,
+  GoogleCalendarConnection,
   IllnessLogEntry,
   MentalHealthCheckin,
   PersonalBest,
@@ -274,6 +275,8 @@ export function illnessLogEntryToRow(e: IllnessLogEntry) {
     notes: e.notes,
     created_at: e.createdAt,
     updated_at: e.updatedAt,
+    linked_session_id: e.linkedSessionId,
+    linked_session_dismissed: e.linkedSessionDismissed,
   };
 }
 
@@ -291,6 +294,8 @@ export function rowToIllnessLogEntry(row: Record<string, unknown>): IllnessLogEn
     notes: (row.notes as string) ?? "",
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
+    linkedSessionId: (row.linked_session_id as string | null) ?? null,
+    linkedSessionDismissed: Boolean(row.linked_session_dismissed),
   };
 }
 
@@ -532,6 +537,13 @@ export function rowToProfile(row: Record<string, unknown>): Profile {
     ftpWatts: selectedFtp,
     importedValues,
     fieldSources,
+    displayName: (row.display_name as string | null) ?? null,
+    sportType: (row.sport_type as string | null) ?? null,
+    club: (row.club as string | null) ?? null,
+    trainerName: (row.trainer_name as string | null) ?? null,
+    avatarPath: (row.avatar_path as string | null) ?? null,
+    avatarUrl: null,
+    email: null,
   };
 }
 
@@ -542,6 +554,11 @@ export function profileToRow(p: Partial<Profile>) {
   if (p.hrMax !== undefined) row.hr_max = p.hrMax;
   if (p.vo2max !== undefined) row.vo2max = p.vo2max;
   if (p.settings !== undefined) row.settings = p.settings;
+  if (p.displayName !== undefined) row.display_name = p.displayName;
+  if (p.sportType !== undefined) row.sport_type = p.sportType;
+  if (p.club !== undefined) row.club = p.club;
+  if (p.trainerName !== undefined) row.trainer_name = p.trainerName;
+  if (p.avatarPath !== undefined) row.avatar_path = p.avatarPath;
   return row;
 }
 
@@ -599,4 +616,30 @@ export function calendarEventToRow(e: Omit<CalendarEvent, "id">) {
     last_synced_at: e.lastSyncedAt,
     updated_at: e.lastSyncedAt,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// GoogleCalendarConnection <-> google_calendar_connections (one row per user, Teil 7)
+// ---------------------------------------------------------------------------------------------
+
+export function rowToGoogleCalendarConnection(row: Record<string, unknown>): GoogleCalendarConnection {
+  return {
+    googleEmail: (row.google_email as string | null) ?? null,
+    accessToken: row.access_token as string,
+    refreshToken: row.refresh_token as string,
+    tokenExpiresAt: row.token_expires_at as string,
+    needsReauth: Boolean(row.needs_reauth),
+    connectedAt: row.connected_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export function googleCalendarConnectionToRow(c: Partial<GoogleCalendarConnection>) {
+  const row: Record<string, unknown> = {};
+  if (c.googleEmail !== undefined) row.google_email = c.googleEmail;
+  if (c.accessToken !== undefined) row.access_token = c.accessToken;
+  if (c.refreshToken !== undefined) row.refresh_token = c.refreshToken;
+  if (c.tokenExpiresAt !== undefined) row.token_expires_at = c.tokenExpiresAt;
+  if (c.needsReauth !== undefined) row.needs_reauth = c.needsReauth;
+  return row;
 }

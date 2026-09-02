@@ -77,6 +77,21 @@ export async function getPlanningWeek(weekStart: string): Promise<PlanningWeek> 
   };
 }
 
+/** Same session shape as getPlanningWeek, but across an arbitrary date range instead of one
+ * Monday-Sunday week — used for matching a Krankheit/Schmerzen-Eintrag to the sessions around it
+ * (Konzept 005, Ergänzung 3), where the relevant window rarely aligns to a calendar week. */
+export async function getPlannedSessionsInRange(startDate: string, endDate: string): Promise<PlannedSession[]> {
+  const supabase = await getSupabaseForRequest();
+  const { data, error } = await supabase
+    .from("planned_sessions")
+    .select("*")
+    .gte("scheduled_date", startDate)
+    .lte("scheduled_date", endDate)
+    .order("scheduled_date");
+  if (error) throw error;
+  return (data ?? []).map(rowToSession);
+}
+
 export async function savePlanningWeek(input: { weekStart: string; focus?: string; weekType?: PlanningWeekType; notes?: string }) {
   const supabase = await getSupabaseForRequest();
   const { error } = await supabase.from("planning_weeks").upsert({
