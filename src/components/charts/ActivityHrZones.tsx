@@ -1,10 +1,4 @@
-const ZONE_COLORS: Record<string, string> = {
-  z1: "#60a5fa",
-  z2: "#34d399",
-  z3: "#fbbf24",
-  z4: "#fb923c",
-  z5: "#f87171",
-};
+import { HR_ZONE_COLORS } from "@/lib/hrZoneColors";
 
 const ZONE_LABELS: Record<string, string> = {
   z1: "Z1 Locker",
@@ -28,7 +22,7 @@ export function ActivityHrZones({ zones }: { zones: { z1: number; z2: number; z3
           <div key={key} className="flex items-center gap-3">
             <span className="text-xs text-muted w-24 shrink-0">{ZONE_LABELS[key]}</span>
             <div className="flex-1 h-2.5 rounded-full bg-surface-raised overflow-hidden">
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: ZONE_COLORS[key] }} />
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: HR_ZONE_COLORS[key] }} />
             </div>
             <span className="text-xs text-foreground w-20 text-right shrink-0">
               {minutes} min ({pct.toFixed(0)}%)
